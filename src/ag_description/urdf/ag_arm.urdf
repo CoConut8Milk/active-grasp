@@ -251,7 +251,7 @@
   <joint name="finger_left" type="prismatic">
     <parent link="tool0"/>
     <child link="finger_left_link"/>
-    <origin xyz="-0.030 0 -0.01" rpy="0 0 0"/>
+    <origin xyz="-0.036 0 -0.01" rpy="0 0 0"/>
     <axis xyz="1 0 0"/>
     <limit lower="0" upper="0.018" effort="25" velocity="0.03"/>
   </joint>
@@ -280,7 +280,7 @@
   <joint name="finger_right" type="prismatic">
     <parent link="tool0"/>
     <child link="finger_right_link"/>
-    <origin xyz="0.030 0 -0.01" rpy="0 0 0"/>
+    <origin xyz="0.036 0 -0.01" rpy="0 0 0"/>
     <axis xyz="-1 0 0"/>
     <limit lower="0" upper="0.018" effort="25" velocity="0.03"/>
   </joint>

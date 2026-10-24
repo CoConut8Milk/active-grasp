@@ -169,6 +169,11 @@ class ActiveGraspEnv:
                 self.cleared += 1
             reward = 10.0 if success else -0.3
             info["success"] = success
+            info["gripper_width"] = float(rsp.gripper_width)
+            self.node.get_logger().info(
+                f"grasp ({u},{v}) height={req.height:.3f} "
+                f"success={success} gripper_width={rsp.gripper_width:.4f} m"
+            )
 
         elif kind == "push":
             u, v, direction = payload
@@ -180,9 +185,17 @@ class ActiveGraspEnv:
             rsp = self._call(self._push, req, timeout=180.0)
             self._trigger(self._clear_aux)
             next_state = self.observe()
-            delta = float(np.mean(np.abs(next_state[0] - before)))
-            reward = float(np.clip(30.0 * delta - 0.1, -0.2, 1.0))
+            # Average only over cells that contain something: a mean over the
+            # full 48x48 grid hides a moved object (2304 cells, a few dozen
+            # change) and makes every push look like nothing happened.
+            occupied = (self.last_state[5] > 0.5) | (next_state[5] > 0.5)
+            delta_map = np.abs(next_state[0] - before)
+            delta = (
+                float(np.mean(delta_map[occupied])) if occupied.any() else 0.0
+            )
+            reward = float(np.clip(10.0 * delta - 0.1, -0.2, 1.0))
             info["delta"] = delta
+            self.node.get_logger().info(f"push ({u},{v}) delta={delta:.4f} m")
 
         else:
             view_id = payload[0]

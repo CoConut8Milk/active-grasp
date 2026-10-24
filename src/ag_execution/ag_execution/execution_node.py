@@ -25,6 +25,7 @@ from ag_execution.kinematics import (
 )
 from ag_execution.primitives import (
     grasp_plan, push_plan, view_plan, grid_to_xy, interpolate_joints,
+    gripper_width, is_holding,
 )
 
 
@@ -60,6 +61,9 @@ class ExecutionNode(Node):
         self.declare_parameter("min_grasp_height", 0.008)
         self.declare_parameter("gripper_close", [0.018, 0.018])
         self.declare_parameter("gripper_open", [0.0, 0.0])
+        self.declare_parameter("gripper_open_gap", 0.052)
+        self.declare_parameter("gripper_closed_gap", 0.016)
+        self.declare_parameter("held_margin", 0.004)
         self.declare_parameter("held_q_sum", 0.033)
         self.declare_parameter("approach_offset", 0.18)
         self.declare_parameter("grasp_offset", 0.065)
@@ -105,6 +109,9 @@ class ExecutionNode(Node):
             "views": views,
             "gripper_close": p("gripper_close").value,
             "gripper_open": p("gripper_open").value,
+            "gripper_open_gap": p("gripper_open_gap").value,
+            "gripper_closed_gap": p("gripper_closed_gap").value,
+            "held_margin": p("held_margin").value,
             "approach_offset": p("approach_offset").value,
             "grasp_offset": p("grasp_offset").value,
             "finger_length": p("finger_length").value,
@@ -388,7 +395,22 @@ class ExecutionNode(Node):
             )
         except KeyError:
             return 0.0
-        return 0.04 - q_sum
+        return gripper_width(
+            self.params,
+            self._joint_positions["finger_left"],
+            self._joint_positions["finger_right"],
+        )
+
+    def _is_holding(self):
+        """An object is between the jaws when they cannot reach the closed gap."""
+        try:
+            return is_holding(
+                self.params,
+                self._joint_positions["finger_left"],
+                self._joint_positions["finger_right"],
+            )
+        except KeyError:
+            return False
 
     def _step(self, step):
         kind = step["kind"]
@@ -407,7 +429,7 @@ class ExecutionNode(Node):
             return True
         if kind == "hold_check":
             self._sleep(step["dur"])
-            return self._gripper_width() > 0.007
+            return self._is_holding()
         if kind == "view":
             cam_target = pose_from_rot_trans(
                 look_at_matrix(step["pos"], step["look"]), step["pos"]
@@ -477,6 +499,11 @@ class ExecutionNode(Node):
             response.success = held
             response.object_cleared = held
             response.gripper_width = self._gripper_width()
+            self.get_logger().info(
+                f"grasp cell ({u},{v}) -> ({x:.3f}, {y:.3f}), z_top={z_top:.3f}, "
+                f"descend={plan[1]['pos'][2]:.3f}, held={held}, "
+                f"width={response.gripper_width:.4f} m"
+            )
         except Exception as exc:
             self.get_logger().error(
                 f"grasp crashed: {type(exc).__name__}: {exc}; recovering"

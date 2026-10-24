@@ -18,6 +18,26 @@ def grasp_orientation():
     return np.diag([1.0, -1.0, -1.0])
 
 
+def gripper_width(params, q_left, q_right):
+    """Distance between the finger pads for the two prismatic joint values."""
+    return params["gripper_open_gap"] - (q_left + q_right)
+
+
+def is_holding(params, q_left, q_right):
+    """True when the closed jaws are blocked by something between them.
+
+    A fully closed gripper reaches ``gripper_closed_gap``; a fully open one
+    reaches ``gripper_open_gap``. Anything strictly between the two means the
+    fingers stopped early, i.e. an object is being squeezed.
+    """
+    width = gripper_width(params, q_left, q_right)
+    return (
+        params["gripper_closed_gap"] + params["held_margin"]
+        < width
+        < params["gripper_open_gap"] - 0.005
+    )
+
+
 def push_orientation(theta):
     """Tool z down; finger axis perpendicular to the push direction."""
     s, c = math.sin(theta), math.cos(theta)

@@ -5,7 +5,9 @@ import numpy as np
 from ag_execution.primitives import (
     grasp_plan,
     grid_to_xy,
+    gripper_width,
     interpolate_joints,
+    is_holding,
     push_orientation,
     push_plan,
     view_plan,
@@ -20,6 +22,9 @@ def _params():
         ],
         "gripper_close": [0.018, 0.018],
         "gripper_open": [0.0, 0.0],
+        "gripper_open_gap": 0.052,
+        "gripper_closed_gap": 0.016,
+        "held_margin": 0.004,
         "approach_offset": 0.18,
         "grasp_offset": 0.065,
         "finger_length": 0.07,
@@ -77,6 +82,19 @@ def test_grasp_descends_so_fingers_straddle_the_object():
         assert tip_z < z_top - 0.005, "fingertips must go below the object top"
         approach_z = plan[0]["pos"][2]
         assert approach_z > descend_z
+
+
+def test_hold_detection_uses_the_real_finger_geometry():
+    params = _params()
+    # Wide open: nothing between the jaws yet.
+    assert abs(gripper_width(params, 0.0, 0.0) - 0.052) < 1e-9
+    assert not is_holding(params, 0.0, 0.0)
+    # Fully closed on air: still not holding.
+    assert abs(gripper_width(params, 0.018, 0.018) - 0.016) < 1e-9
+    assert not is_holding(params, 0.018, 0.018)
+    # A 3 cm object stops each finger at 1.5 cm -> 2.2 cm remains.
+    assert abs(gripper_width(params, 0.015, 0.015) - 0.022) < 1e-9
+    assert is_holding(params, 0.015, 0.015)
 
 
 def test_interpolate_joints_endpoints():

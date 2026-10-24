@@ -426,6 +426,8 @@ class PerceptionNode(Node):
         height, uncertainty, color_map, mask = self.fusion.observe(
             snapshot, bool(request.auxiliary_view)
         )
+        if not request.auxiliary_view:
+            self._log_peaks(height)
 
         header = depth_msg.header
         response.height = self.bridge.cv2_to_imgmsg(height, encoding="32FC1")
@@ -437,6 +439,28 @@ class PerceptionNode(Node):
         response.color.header = header
         response.mask.header = header
         return response
+
+    def _log_peaks(self, height, top=3):
+        """Report the tallest cells in world coordinates.
+
+        Comparing these with the world manager's 'spawned ... at (x, y)'
+        messages is the quickest way to tell whether the height map is
+        geometrically correct or shifted/mirrored.
+        """
+        grid = np.asarray(height, dtype=np.float32).reshape(-1)
+        if not np.any(grid > 0.005):
+            return
+        res = (self.fusion.x_max - self.fusion.x_min) / self.fusion.width
+        parts = []
+        for i in np.argsort(grid)[-top:][::-1]:
+            if grid[i] <= 0.005:
+                continue
+            cj, ci = divmod(int(i), self.fusion.width)
+            x = self.fusion.x_min + (ci + 0.5) * res
+            y = self.fusion.y_max - (cj + 0.5) * res
+            parts.append(f"({x:.3f}, {y:.3f}, z={grid[i]:.3f})")
+        if parts:
+            self.get_logger().info("heightmap peaks: " + ", ".join(parts))
 
 
 def main(args=None):

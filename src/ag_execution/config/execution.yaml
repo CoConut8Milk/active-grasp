@@ -29,6 +29,11 @@ execution_node:
     min_grasp_height: 0.008
     gripper_close: [0.018, 0.018]
     gripper_open: [0.0, 0.0]
+    # 指间净空：全开 5.2 cm（3.4 cm 的物体每侧仍有 9 mm 余量，下降时不会把物体撞飞），
+    # 全闭 1.6 cm（更薄的物体会被指面先挡住，不会穿过）。
+    gripper_open_gap: 0.052
+    gripper_closed_gap: 0.016
+    held_margin: 0.004
     held_q_sum: 0.033
     approach_offset: 0.18
     grasp_offset: 0.065     # 旧参数，抓取深度现在按 finger_length 自动计算
