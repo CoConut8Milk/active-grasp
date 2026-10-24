@@ -11,7 +11,8 @@ execution_node:
     camera_link: camera_link
     home_camera_pos: [0.68, 0.0, 0.62]
     home_camera_look: [0.45, 0.0, 0.02]
-    bin_pos: [0.45, -0.34, 0.32]
+    # 放到回收盒正上方、离盒口约 13 cm（比 0.32 更容易解算，误差更小）
+    bin_pos: [0.45, -0.34, 0.29]
     # ROS 2 参数不支持字典列表：每个视角 6 个数 = [pos_x, pos_y, pos_z, look_x, look_y, look_z]
     views_flat: [
       0.45, 0.00, 0.72, 0.45, 0.0, 0.02,    # top-down
@@ -30,7 +31,9 @@ execution_node:
     gripper_open: [0.0, 0.0]
     held_q_sum: 0.033
     approach_offset: 0.18
-    grasp_offset: 0.065
+    grasp_offset: 0.065     # 旧参数，抓取深度现在按 finger_length 自动计算
+    # 指尖在 tool0 下方 7 cm（= 手指关节 -0.01 + 手指长 0.06）
+    finger_length: 0.07
     lift_height: 0.30
     push_height: 0.075
     push_length: 0.09

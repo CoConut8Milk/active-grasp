@@ -36,10 +36,18 @@ def grid_to_xy(grid, u, v):
 def grasp_plan(params, x, y, z_top):
     orient = grasp_orientation()
     bin_pos = params["bin_pos"]
+    # The fingers reach finger_length below tool0. Aim the fingertips at half
+    # the object height (and never below 1 cm above the table) so that the
+    # object is actually between the jaws instead of being pinched by its top
+    # edge - with a constant tool height the fingertips only dip 5 mm below
+    # the object top for every object size.
+    finger_length = params.get("finger_length", 0.07)
+    tip_z = max(0.01, 0.5 * z_top)
+    descend_z = tip_z + finger_length
     return [
-        {"kind": "move", "pos": [x, y, z_top + params["approach_offset"]],
+        {"kind": "move", "pos": [x, y, descend_z + params["approach_offset"]],
          "rot": orient, "dur": params["dur_approach"]},
-        {"kind": "move", "pos": [x, y, z_top + params["grasp_offset"]],
+        {"kind": "move", "pos": [x, y, descend_z],
          "rot": orient, "dur": params["dur_descend"]},
         {"kind": "gripper", "pos": params["gripper_close"], "dur": params["dur_close"]},
         {"kind": "hold_check", "dur": params["dur_hold_check"]},

@@ -1,11 +1,14 @@
 """ROS node that turns Grasp/Push/MoveView requests into arm motion."""
 
 import math
+import threading
 import time
 
 import numpy as np
 
 import rclpy
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from rclpy.action import ActionClient
 from rclpy.qos import qos_profile_sensor_data, QoSProfile, DurabilityPolicy
@@ -60,6 +63,7 @@ class ExecutionNode(Node):
         self.declare_parameter("held_q_sum", 0.033)
         self.declare_parameter("approach_offset", 0.18)
         self.declare_parameter("grasp_offset", 0.065)
+        self.declare_parameter("finger_length", 0.07)
         self.declare_parameter("lift_height", 0.30)
         self.declare_parameter("push_height", 0.075)
         self.declare_parameter("push_length", 0.09)
@@ -103,6 +107,7 @@ class ExecutionNode(Node):
             "gripper_open": p("gripper_open").value,
             "approach_offset": p("approach_offset").value,
             "grasp_offset": p("grasp_offset").value,
+            "finger_length": p("finger_length").value,
             "lift_height": p("lift_height").value,
             "push_height": p("push_height").value,
             "push_length": p("push_length").value,
@@ -137,26 +142,28 @@ class ExecutionNode(Node):
         self._arm_client = ActionClient(self, FollowJointTrajectory, p("arm_action").value)
         self._observe_cli = self.create_client(Observe, p("observe_service").value)
 
-        self._grasp_srv = self.create_service(Grasp, "~/grasp", self._grasp_cb)
-        self._push_srv = self.create_service(Push, "~/push", self._push_cb)
-        self._view_srv = self.create_service(MoveView, "~/move_view", self._view_cb)
-        self._home_srv = self.create_service(Trigger, "~/go_home", self._home_cb)
+        # Blocking manipulation work lives in its own callback group: the
+        # executor keeps delivering action results and joint states on other
+        # threads while a grasp/push/move callback is waiting.
+        self._srv_group = MutuallyExclusiveCallbackGroup()
+        self._grasp_srv = self.create_service(
+            Grasp, "~/grasp", self._grasp_cb, callback_group=self._srv_group
+        )
+        self._push_srv = self.create_service(
+            Push, "~/push", self._push_cb, callback_group=self._srv_group
+        )
+        self._view_srv = self.create_service(
+            MoveView, "~/move_view", self._view_cb, callback_group=self._srv_group
+        )
+        self._home_srv = self.create_service(
+            Trigger, "~/go_home", self._home_cb, callback_group=self._srv_group
+        )
 
-        self.get_logger().info("waiting for arm controller...")
-        # Gazebo 在 WSL 里启动可能要一两分钟，这里一直等到服务出现为止。
-        while rclpy.ok() and not self._arm_client.wait_for_server(timeout_sec=10.0):
-            self.get_logger().info(
-                "still waiting for /arm_controller action server ..."
-            )
-        self._read_current_joints(timeout=5.0)
-
-        self.home_q = self._solve_home()
-        self.get_logger().info("moving to home pose...")
-        if not self._move_to_joints(self.home_q, 2.0):
-            raise RuntimeError("could not reach home pose at startup")
-        self._check_gripper_ready()
-        self._ready_pub.publish(Bool(data=True))
-        self.get_logger().info("execution ready")
+        # Set by main() once the multi threaded executor is spinning; until
+        # then the blocking helpers below have to pump the node themselves.
+        self._external_spin = False
+        self._ready_event = threading.Event()
+        self.home_q = None
 
     # ---------------- state helpers ----------------
     def _joint_cb(self, msg):
@@ -181,10 +188,10 @@ class ExecutionNode(Node):
             except KeyError:
                 pass
 
-    def _read_current_joints(self, timeout=5.0):
-        while not self._have_state and timeout > 0:
-            rclpy.spin_once(self, timeout_sec=0.05)
-            timeout -= 0.05
+    def _wait_for_joint_state(self, timeout=15.0):
+        deadline = time.monotonic() + timeout
+        while not self._have_state and time.monotonic() < deadline and rclpy.ok():
+            self._pause()
         if not self._have_state:
             self.get_logger().warn("no joint state; assuming all-zero configuration")
 
@@ -204,7 +211,7 @@ class ExecutionNode(Node):
                     + ", ".join(f"{n}={self._joint_positions[n]:.4f}" for n in needed)
                 )
                 return True
-            rclpy.spin_once(self, timeout_sec=0.05)
+            self._pause()
         missing = [n for n in needed if n not in self._joint_positions]
         self.get_logger().error(
             "gripper joints missing from /joint_states: "
@@ -216,19 +223,20 @@ class ExecutionNode(Node):
         return False
 
     def _sleep(self, seconds):
-        # Spin while sleeping so subscriptions (joint_states) keep updating;
-        # required for correct grasp-hold detection inside service callbacks.
         deadline = time.monotonic() + seconds
         while time.monotonic() < deadline:
-            self._spin_once()
+            self._pause()
 
-    def _spin_once(self, timeout_sec=0.02):
-        """Process one callback while blocking inside a service callback.
+    def _pause(self, timeout_sec=0.02):
+        """Yield for a moment while joint states keep being processed.
 
-        The node is spun by the main executor, which is busy inside this
-        callback, so we pump it manually. Falls back to a plain sleep if the
-        node already belongs to the executor we would spin.
+        Once main() runs a multi threaded executor we only need to sleep; the
+        executor's other threads deliver action results and joint states.
+        Before that (constructor startup) the node has to be pumped by hand.
         """
+        if self._external_spin:
+            time.sleep(timeout_sec)
+            return
         try:
             rclpy.spin_once(self, timeout_sec=timeout_sec)
         except (ValueError, RuntimeError):
@@ -237,8 +245,37 @@ class ExecutionNode(Node):
     def _wait_future(self, future, timeout):
         deadline = time.monotonic() + timeout
         while not future.done() and time.monotonic() < deadline and rclpy.ok():
-            self._spin_once()
+            self._pause()
         return future.done()
+
+    def _wait_ready(self, timeout=180.0):
+        if self._ready_event.wait(timeout):
+            return True
+        self.get_logger().warn("execution is not ready yet; rejecting request")
+        return False
+
+    # ---------------- startup ----------------
+    def startup(self):
+        """Wait for the controller, then park the arm in the home pose.
+
+        Called from main() once the multi threaded executor is spinning, so a
+        plain wait is enough: the executor's threads deliver the action
+        results and joint states.
+        """
+        self.get_logger().info("waiting for arm controller...")
+        while rclpy.ok() and not self._arm_client.wait_for_server(timeout_sec=10.0):
+            self.get_logger().info("still waiting for /arm_controller action server ...")
+        if not rclpy.ok():
+            return
+        self._wait_for_joint_state(timeout=15.0)
+        self.home_q = self._solve_home()
+        self.get_logger().info("moving to home pose...")
+        if not self._move_to_joints(self.home_q, 2.0):
+            raise RuntimeError("could not reach home pose at startup")
+        self._check_gripper_ready()
+        self._ready_pub.publish(Bool(data=True))
+        self._ready_event.set()
+        self.get_logger().info("execution ready")
 
     # ---------------- IK helpers ----------------
     def _tool_pose(self, pos, rot):
@@ -393,6 +430,10 @@ class ExecutionNode(Node):
 
     # ---------------- services ----------------
     def _home_cb(self, request, response):
+        if not self._wait_ready():
+            response.success = False
+            response.message = "not ready"
+            return response
         try:
             response.success = self._move_to_joints(self.home_q, 1.2)
         except Exception as exc:
@@ -405,6 +446,8 @@ class ExecutionNode(Node):
         response.success = False
         response.object_cleared = False
         response.gripper_width = 0.0
+        if not self._wait_ready():
+            return response
         try:
             u, v = int(request.u), int(request.v)
             z_top = float(request.height)
@@ -446,6 +489,8 @@ class ExecutionNode(Node):
 
     def _push_cb(self, request, response):
         response.success = False
+        if not self._wait_ready():
+            return response
         try:
             u, v = int(request.u), int(request.v)
             direction = int(request.direction) % 8
@@ -471,6 +516,8 @@ class ExecutionNode(Node):
 
     def _view_cb(self, request, response):
         response.success = False
+        if not self._wait_ready():
+            return response
         try:
             view_id = int(request.view_id)
             views = self.params["views"]
@@ -494,11 +541,29 @@ class ExecutionNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = ExecutionNode()
+    # A multi threaded executor keeps delivering action results, joint states
+    # and service responses while a grasp/push callback is blocking. Without
+    # it the node had to spin itself from inside its own callback, which
+    # silently stopped working and left every goal unanswered.
+    executor = MultiThreadedExecutor(num_threads=3)
+    executor.add_node(node)
+    node._external_spin = True
+
+    def _spin():
+        try:
+            executor.spin()
+        except Exception:
+            pass
+
+    spin_thread = threading.Thread(target=_spin, daemon=True)
+    spin_thread.start()
     try:
-        rclpy.spin(node)
+        node.startup()
+        spin_thread.join()
     except KeyboardInterrupt:
         pass
     finally:
+        executor.shutdown()
         node.destroy_node()
         rclpy.shutdown()
 

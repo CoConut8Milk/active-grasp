@@ -22,6 +22,7 @@ def _params():
         "gripper_open": [0.0, 0.0],
         "approach_offset": 0.18,
         "grasp_offset": 0.065,
+        "finger_length": 0.07,
         "lift_height": 0.30,
         "push_height": 0.075,
         "push_length": 0.09,
@@ -63,6 +64,19 @@ def test_plans_are_well_formed():
 
     view = view_plan(params, 0)
     assert view[0]["kind"] == "view" and view[-1]["kind"] == "home"
+
+
+def test_grasp_descends_so_fingers_straddle_the_object():
+    params = _params()
+    finger_length = params["finger_length"]
+    for z_top in (0.022, 0.035, 0.045):
+        plan = grasp_plan(params, 0.45, 0.0, z_top)
+        descend_z = plan[1]["pos"][2]
+        tip_z = descend_z - finger_length
+        assert tip_z > 0.005, "fingertips must stay above the table"
+        assert tip_z < z_top - 0.005, "fingertips must go below the object top"
+        approach_z = plan[0]["pos"][2]
+        assert approach_z > descend_z
 
 
 def test_interpolate_joints_endpoints():

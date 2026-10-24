@@ -251,7 +251,7 @@
   <joint name="finger_left" type="prismatic">
     <parent link="tool0"/>
     <child link="finger_left_link"/>
-    <origin xyz="-0.028 0 -0.01" rpy="0 0 0"/>
+    <origin xyz="-0.030 0 -0.01" rpy="0 0 0"/>
     <axis xyz="1 0 0"/>
     <limit lower="0" upper="0.018" effort="25" velocity="0.03"/>
   </joint>
@@ -259,14 +259,14 @@
   <link name="finger_left_link">
     <visual>
       <geometry>
-        <box size="0.016 0.02 0.06"/>
+        <box size="0.02 0.026 0.06"/>
       </geometry>
       <origin xyz="0 0 -0.03" rpy="0 0 0"/>
       <material name="ag_black"/>
     </visual>
     <collision>
       <geometry>
-        <box size="0.016 0.02 0.06"/>
+        <box size="0.02 0.026 0.06"/>
       </geometry>
       <origin xyz="0 0 -0.03" rpy="0 0 0"/>
     </collision>
@@ -280,7 +280,7 @@
   <joint name="finger_right" type="prismatic">
     <parent link="tool0"/>
     <child link="finger_right_link"/>
-    <origin xyz="0.028 0 -0.01" rpy="0 0 0"/>
+    <origin xyz="0.030 0 -0.01" rpy="0 0 0"/>
     <axis xyz="-1 0 0"/>
     <limit lower="0" upper="0.018" effort="25" velocity="0.03"/>
   </joint>
@@ -288,14 +288,14 @@
   <link name="finger_right_link">
     <visual>
       <geometry>
-        <box size="0.016 0.02 0.06"/>
+        <box size="0.02 0.026 0.06"/>
       </geometry>
       <origin xyz="0 0 -0.03" rpy="0 0 0"/>
       <material name="ag_black"/>
     </visual>
     <collision>
       <geometry>
-        <box size="0.016 0.02 0.06"/>
+        <box size="0.02 0.026 0.06"/>
       </geometry>
       <origin xyz="0 0 -0.03" rpy="0 0 0"/>
     </collision>
@@ -338,10 +338,12 @@
   <gazebo reference="finger_left_link">
     <mu1>1.0</mu1>
     <mu2>1.0</mu2>
+    <material>Gazebo/DarkGrey</material>
   </gazebo>
   <gazebo reference="finger_right_link">
     <mu1>1.0</mu1>
     <mu2>1.0</mu2>
+    <material>Gazebo/DarkGrey</material>
   </gazebo>
 
   <!-- Gazebo Classic lumps fixed joints by default. Without the flags below

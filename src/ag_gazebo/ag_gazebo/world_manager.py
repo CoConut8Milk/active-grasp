@@ -44,20 +44,22 @@ def build_object_sdf(name, rng):
     ixx = iyy = izz = 0.0
 
     if shape == "box":
-        sx = rng.uniform(0.022, 0.040)
-        sy = rng.uniform(0.022, 0.040)
-        sz = rng.uniform(0.022, 0.045)
+        # Keep every object narrower than the 4 cm open gripper gap, otherwise
+        # the fingers collide with the object instead of closing around it.
+        sx = rng.uniform(0.020, 0.032)
+        sy = rng.uniform(0.020, 0.034)
+        sz = rng.uniform(0.020, 0.040)
         mass = density * sx * sy * sz
         ixx, iyy, izz = _box_inertia(mass, sx, sy, sz)
         geometry = f'<box><size>{sx} {sy} {sz}</size></box>'
     elif shape == "cylinder":
-        radius = rng.uniform(0.012, 0.020)
+        radius = rng.uniform(0.010, 0.016)
         height = rng.uniform(0.025, 0.045)
         mass = density * math.pi * radius * radius * height
         ixx, iyy, izz = _cylinder_inertia(mass, radius, height)
         geometry = f'<cylinder><radius>{radius}</radius><length>{height}</length></cylinder>'
     else:
-        radius = rng.uniform(0.013, 0.021)
+        radius = rng.uniform(0.012, 0.017)
         mass = density * 4.0 / 3.0 * math.pi * radius**3
         ixx = iyy = izz = 0.4 * mass * radius * radius
         geometry = f'<sphere><radius>{radius}</radius></sphere>'
