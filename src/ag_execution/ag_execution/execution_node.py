@@ -124,10 +124,13 @@ class ExecutionNode(Node):
             "push_height": p("push_height").value,
             "push_length": p("push_length").value,
             "view_dwell": p("view_dwell").value,
-            "dur_approach": 0.9, "dur_descend": 1.1, "dur_close": 1.4,
-            "dur_hold_check": 0.5, "dur_lift": 0.6, "dur_transit": 0.9,
-            "dur_open": 0.5, "dur_home": 1.0, "dur_push": 0.7,
-            "dur_retreat": 0.5, "dur_view": 1.0,
+            # WSL 里仿真慢于实时，且 gazebo_ros2_control 的位置环增益有限：
+            # 轨迹过快会让关节跟不上，控制器直接以 goal_time_tolerance 中止
+            # （日志里 Position Error 0.05~0.16 rad 就是这么来的）。
+            "dur_approach": 1.2, "dur_descend": 1.4, "dur_close": 1.4,
+            "dur_hold_check": 0.5, "dur_lift": 1.2, "dur_transit": 1.8,
+            "dur_open": 0.6, "dur_home": 1.8, "dur_push": 1.0,
+            "dur_retreat": 0.8, "dur_view": 1.4,
         }
         self.min_grasp_height = p("min_grasp_height").value
         self.held_q_sum = p("held_q_sum").value
@@ -362,11 +365,17 @@ class ExecutionNode(Node):
         goal.trajectory = traj
         for _ in range(6):
             tol = JointTolerance()
-            tol.position = 0.02
-            tol.velocity = 0.05
+            # The default position loop in gazebo_ros2_control is weak
+            # (gain 0.1): a 0.02 rad tolerance aborts trajectories that are
+            # still converging. 0.05 rad is ~3 deg and well inside what the
+            # grasp geometry tolerates.
+            tol.position = 0.05
+            tol.velocity = 0.10
             tol.name = self.model.arm_joints[_]
             goal.goal_tolerance.append(tol)
-        goal.goal_time_tolerance = rclpy.duration.Duration(seconds=0.5).to_msg()
+        # Give the position loop time to settle: in WSL a 0.5 s tolerance made
+        # the controller abort trajectories that were still converging.
+        goal.goal_time_tolerance = rclpy.duration.Duration(seconds=2.0).to_msg()
 
         future = self._arm_client.send_goal_async(goal)
         # A busy controller can take a while to answer, and giving up while it
@@ -399,7 +408,7 @@ class ExecutionNode(Node):
                 f"arm controller returned error_code={int(result.error_code)}; "
                 f"max joint error after settling is {error:.4f} rad"
             )
-            if error > 0.05:
+            if error > 0.08:
                 return False
         self._current_q = np.array(target_q, dtype=float)
         return True
@@ -410,7 +419,7 @@ class ExecutionNode(Node):
         self._gripper_pub.publish(msg)
         self._sleep(duration)
 
-    def _grasp_close(self, steps=6, duration=0.35):
+    def _grasp_close(self, steps=8, duration=0.3):
         """Close the jaws gradually and stop as soon as they are blocked.
 
         A single hard close command shoves a light object out of the jaws
@@ -420,18 +429,24 @@ class ExecutionNode(Node):
         """
         target = float(self.params["gripper_close"][0])
         self._sleep(0.2)  # let the descent settle before touching the object
-        threshold = (
-            self.params["gripper_closed_gap"] + self.params["held_margin"]
-        )
-        for fraction in np.linspace(1.0 / steps, 1.0, steps):
-            q = target * fraction
+        per_step = target / steps
+        expected = 2.0 * per_step  # width change if the jaws moved freely
+        prev_width = self._gripper_width()
+        for i in range(1, steps + 1):
+            q = per_step * i
             self._set_gripper([q, q], duration)
             width = self._gripper_width()
-            if width > threshold:
+            moved = prev_width - width
+            # Blocked = the jaws stopped progressing. Comparing the *movement*
+            # per step is what distinguishes real contact from an early step
+            # (checking "width > closed gap" fires on the very first command).
+            if moved < 0.4 * expected:
                 self.get_logger().info(
-                    f"jaw contact at q={q:.4f} m, width={width:.4f} m"
+                    f"jaw contact at q={q:.4f} m: moved {moved * 1000:.1f} mm "
+                    f"of {expected * 1000:.1f} mm, width={width:.4f} m"
                 )
                 return True
+            prev_width = width
         return self._is_holding()
 
     def _gripper_width(self):
