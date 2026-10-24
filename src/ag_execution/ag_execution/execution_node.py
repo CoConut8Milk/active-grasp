@@ -410,6 +410,30 @@ class ExecutionNode(Node):
         self._gripper_pub.publish(msg)
         self._sleep(duration)
 
+    def _grasp_close(self, steps=6, duration=0.35):
+        """Close the jaws gradually and stop as soon as they are blocked.
+
+        A single hard close command shoves a light object out of the jaws
+        (measured: the object moved ~5 cm). Closing in small increments and
+        watching /joint_states lets us stop at first contact, which is what a
+        real parallel gripper does with a force limit.
+        """
+        target = float(self.params["gripper_close"][0])
+        self._sleep(0.2)  # let the descent settle before touching the object
+        threshold = (
+            self.params["gripper_closed_gap"] + self.params["held_margin"]
+        )
+        for fraction in np.linspace(1.0 / steps, 1.0, steps):
+            q = target * fraction
+            self._set_gripper([q, q], duration)
+            width = self._gripper_width()
+            if width > threshold:
+                self.get_logger().info(
+                    f"jaw contact at q={q:.4f} m, width={width:.4f} m"
+                )
+                return True
+        return self._is_holding()
+
     def _gripper_width(self):
         try:
             q_sum = (
@@ -521,7 +545,10 @@ class ExecutionNode(Node):
             self._log_tool_pose(target)
             return True
         if kind == "gripper":
-            self._set_gripper(step["pos"], step["dur"])
+            if np.allclose(step["pos"], self.params["gripper_close"]):
+                self._grasp_close()
+            else:
+                self._set_gripper(step["pos"], step["dur"])
             return True
         if kind == "hold_check":
             self._sleep(step["dur"])
