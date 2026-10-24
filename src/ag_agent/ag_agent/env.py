@@ -158,6 +158,7 @@ class ActiveGraspEnv:
         if kind == "grasp":
             requested_u, requested_v = payload
             u, v = requested_u, requested_v
+            before_height = self.last_state[0].copy()
             # Grasp the centre of the object, not the tallest (edge) cell.
             occupied = (self.last_state[5] > 0.5) & (
                 self.last_state[0] > self.min_height
@@ -185,6 +186,14 @@ class ActiveGraspEnv:
                 f"grasp ({u},{v}) height={req.height:.3f} "
                 f"success={success} gripper_width={rsp.gripper_width:.4f} m"
             )
+            if not success:
+                occupied = (self.last_state[5] > 0.5) | (next_state[5] > 0.5)
+                moved = np.abs(next_state[0] - before_height)
+                delta = float(np.mean(moved[occupied])) if occupied.any() else 0.0
+                self.node.get_logger().info(
+                    f"grasp failed: heightmap delta={delta:.4f} m "
+                    "(large = the object was pushed aside, ~0 = never between the jaws)"
+                )
 
         elif kind == "push":
             u, v, direction = payload

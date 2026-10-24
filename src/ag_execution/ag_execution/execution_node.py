@@ -293,6 +293,13 @@ class ExecutionNode(Node):
         self.get_logger().info("moving to home pose...")
         if not self._move_to_joints(self.home_q, 2.0):
             raise RuntimeError("could not reach home pose at startup")
+        home_error = float(np.max(np.abs(self._current_q - self.home_q)))
+        if home_error > 0.1:
+            raise RuntimeError(
+                f"arm did not reach the home pose (max joint error "
+                f"{home_error:.2f} rad). The controllers are probably not "
+                "active - check for a stale gzserver from a previous run."
+            )
         self._check_gripper_ready()
         self._ready_pub.publish(Bool(data=True))
         self._ready_event.set()

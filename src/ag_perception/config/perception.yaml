@@ -13,7 +13,10 @@ perception_node:
     workspace_x_max: 0.70
     workspace_y_min: -0.25
     workspace_y_max: 0.25
-    z_max: 0.35
+    # 只保留桌面上的真实结构（物体 ≤4.5 cm、边界墙 6 cm）。机械臂自身连杆在
+    # 0.3 m 以上，若把上限设成 0.35，手臂进入视野时会被当成"34 cm 高的物体"
+    # 让策略去抓（这类假目标会把整轮 episode 带偏）。
+    z_max: 0.12
     max_age: 8
     # 判定"机械臂已静止"的速度阈值（rad/s 或 m/s）。Gazebo Classic 用位置差分
     # 报告关节速度，仿真慢于实时（WSL 下常见 real-time factor≈0.3）时会残留
