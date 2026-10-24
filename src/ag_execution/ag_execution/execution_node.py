@@ -14,6 +14,7 @@ from rclpy.action import ActionClient
 from rclpy.qos import qos_profile_sensor_data, QoSProfile, DurabilityPolicy
 from control_msgs.action import FollowJointTrajectory
 from control_msgs.msg import JointTolerance
+from gazebo_msgs.srv import GetEntityState, GetWorldProperties
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64MultiArray, Bool
@@ -74,6 +75,7 @@ class ExecutionNode(Node):
         self.declare_parameter("push_length", 0.09)
         self.declare_parameter("view_dwell", 1.2)
         self.declare_parameter("trajectory_steps", 8)
+        self.declare_parameter("verify_objects", True)
         # 同样用扁平数组：每个种子组 6 个关节角
         self.declare_parameter("seed_sets_flat", [
             0.0, -0.4, 1.3, -0.5, 0.0, 0.0,
@@ -121,8 +123,8 @@ class ExecutionNode(Node):
             "push_height": p("push_height").value,
             "push_length": p("push_length").value,
             "view_dwell": p("view_dwell").value,
-            "dur_approach": 0.9, "dur_descend": 0.55, "dur_close": 0.7,
-            "dur_hold_check": 0.35, "dur_lift": 0.6, "dur_transit": 0.9,
+            "dur_approach": 0.9, "dur_descend": 1.1, "dur_close": 1.4,
+            "dur_hold_check": 0.5, "dur_lift": 0.6, "dur_transit": 0.9,
             "dur_open": 0.5, "dur_home": 1.0, "dur_push": 0.7,
             "dur_retreat": 0.5, "dur_view": 1.0,
         }
@@ -151,6 +153,13 @@ class ExecutionNode(Node):
         )
         self._arm_client = ActionClient(self, FollowJointTrajectory, p("arm_action").value)
         self._observe_cli = self.create_client(Observe, p("observe_service").value)
+        self._world_props_cli = self.create_client(
+            GetWorldProperties, "/gazebo/get_world_properties"
+        )
+        self._entity_state_cli = self.create_client(
+            GetEntityState, "/gazebo/get_entity_state"
+        )
+        self.verify_objects = bool(p("verify_objects").value)
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
@@ -449,6 +458,46 @@ class ExecutionNode(Node):
         else:
             self.get_logger().info(message)
 
+    def _log_objects_near(self, x, y, top=3):
+        """Report where gazebo thinks the clutter really is (debug aid).
+
+        The height map and the arm can both be right while the object has
+        already been nudged away; only gazebo's own entity state can tell.
+        """
+        if not self.verify_objects:
+            return
+        if not self._world_props_cli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn(
+                "gazebo_ros_state services unavailable; cannot verify objects"
+            )
+            return
+        request = GetWorldProperties.Request()
+        future = self._world_props_cli.call_async(request)
+        if not self._wait_future(future, 3.0) or future.result() is None:
+            return
+        names = [n for n in future.result().model_names if n.startswith("ag_obj_")]
+        found = []
+        for name in names:
+            entity = GetEntityState.Request()
+            entity.name = name
+            entity.reference_frame = "world"
+            entity_future = self._entity_state_cli.call_async(entity)
+            if not self._wait_future(entity_future, 2.0):
+                continue
+            result = entity_future.result()
+            if result is None or not result.success:
+                continue
+            position = result.state.position
+            found.append(
+                (float(np.hypot(position.x - x, position.y - y)), name, position)
+            )
+        found.sort(key=lambda item: item[0])
+        for distance, name, position in found[:top]:
+            self.get_logger().info(
+                f"object {name}: world ({position.x:.3f}, {position.y:.3f}, "
+                f"z={position.z:.3f}), distance_to_grasp={distance * 1000.0:.0f} mm"
+            )
+
     def _step(self, step):
         kind = step["kind"]
         if kind == "move":
@@ -546,6 +595,8 @@ class ExecutionNode(Node):
                 f"(closed={self.params['gripper_closed_gap']:.3f}, "
                 f"open={self.params['gripper_open_gap']:.3f})"
             )
+            if not held:
+                self._log_objects_near(x, y)
         except Exception as exc:
             self.get_logger().error(
                 f"grasp crashed: {type(exc).__name__}: {exc}; recovering"

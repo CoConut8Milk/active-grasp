@@ -3,6 +3,27 @@
 import numpy as np
 
 
+def blob_centre(occupied, u, v, radius=3):
+    """Snap a grasp cell to the centre of the local object blob.
+
+    The greedy policy picks the tallest cell, which is frequently on the rim
+    of an object. A parallel-jaw gripper closing on the rim shoves the object
+    sideways instead of squeezing it, so move the target to the centroid of
+    the occupied neighbourhood.
+    """
+    occ = np.asarray(occupied, dtype=bool)
+    if occ.ndim != 2 or not occ.any():
+        return int(u), int(v)
+    height, width = occ.shape
+    v0, v1 = max(0, v - radius), min(height, v + radius + 1)
+    u0, u1 = max(0, u - radius), min(width, u + radius + 1)
+    patch = occ[v0:v1, u0:u1]
+    if not patch.any():
+        return int(u), int(v)
+    ys, xs = np.nonzero(patch)
+    return int(round(u0 + xs.mean())), int(round(v0 + ys.mean()))
+
+
 class ActionSpace:
     def __init__(self, height, width, n_dirs=8, n_views=4, border=3):
         self.height = int(height)

@@ -259,14 +259,14 @@
   <link name="finger_left_link">
     <visual>
       <geometry>
-        <box size="0.02 0.026 0.06"/>
+        <box size="0.02 0.032 0.06"/>
       </geometry>
       <origin xyz="0 0 -0.03" rpy="0 0 0"/>
       <material name="ag_black"/>
     </visual>
     <collision>
       <geometry>
-        <box size="0.02 0.026 0.06"/>
+        <box size="0.02 0.032 0.06"/>
       </geometry>
       <origin xyz="0 0 -0.03" rpy="0 0 0"/>
     </collision>
@@ -288,14 +288,14 @@
   <link name="finger_right_link">
     <visual>
       <geometry>
-        <box size="0.02 0.026 0.06"/>
+        <box size="0.02 0.032 0.06"/>
       </geometry>
       <origin xyz="0 0 -0.03" rpy="0 0 0"/>
       <material name="ag_black"/>
     </visual>
     <collision>
       <geometry>
-        <box size="0.02 0.026 0.06"/>
+        <box size="0.02 0.032 0.06"/>
       </geometry>
       <origin xyz="0 0 -0.03" rpy="0 0 0"/>
     </collision>
@@ -336,13 +336,13 @@
 
   <!-- ======================= gazebo plugins ======================= -->
   <gazebo reference="finger_left_link">
-    <mu1>1.0</mu1>
-    <mu2>1.0</mu2>
+    <mu1>1.5</mu1>
+    <mu2>1.5</mu2>
     <material>Gazebo/DarkGrey</material>
   </gazebo>
   <gazebo reference="finger_right_link">
-    <mu1>1.0</mu1>
-    <mu2>1.0</mu2>
+    <mu1>1.5</mu1>
+    <mu2>1.5</mu2>
     <material>Gazebo/DarkGrey</material>
   </gazebo>
 

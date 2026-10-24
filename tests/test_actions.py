@@ -38,3 +38,15 @@ def test_valid_mask_excludes_unreliable_border():
     assert not mask[space.encode_grasp(47, 0)]
     assert mask[space.encode_grasp(24, 24)]
 
+
+def test_blob_centre_snaps_edge_pick_to_object_centre():
+    from ag_agent.actions import blob_centre
+
+    occupied = np.zeros((48, 48), dtype=bool)
+    occupied[28:33, 18:24] = True   # a 5x6 blob, tallest cell on its corner
+    u, v = blob_centre(occupied, 18, 28)
+    assert 20 <= u <= 21
+    assert 30 <= v <= 31
+    # Empty neighbourhood keeps the requested cell.
+    assert blob_centre(np.zeros((48, 48), dtype=bool), 5, 7) == (5, 7)
+

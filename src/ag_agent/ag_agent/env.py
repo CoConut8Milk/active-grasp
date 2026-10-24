@@ -5,7 +5,7 @@ import time
 
 from std_srvs.srv import Trigger
 from ag_interfaces.srv import Observe, Grasp, Push, MoveView, Reset
-from ag_agent.actions import ActionSpace
+from ag_agent.actions import ActionSpace, blob_centre
 
 
 def _decode_image(msg):
@@ -38,6 +38,7 @@ class ActiveGraspEnv:
         self.node = node
         self.action_space = ActionSpace(height, width, n_dirs, n_views)
         self.max_steps = max_steps
+        self.min_height = 0.008  # matches ag_execution's min_grasp_height
         self.z_max = z_max
         self.n_objects = 0
         self.cleared = 0
@@ -156,6 +157,11 @@ class ActiveGraspEnv:
 
         if kind == "grasp":
             u, v = payload
+            # Grasp the centre of the object, not the tallest (edge) cell.
+            occupied = (self.last_state[5] > 0.5) & (
+                self.last_state[0] > self.min_height
+            )
+            u, v = blob_centre(occupied, u, v)
             req = Grasp.Request()
             req.u, req.v = u, v
             req.height = float(self.last_state[0, v, u])
