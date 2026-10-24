@@ -56,14 +56,13 @@ def grid_to_xy(grid, u, v):
 def grasp_plan(params, x, y, z_top):
     orient = grasp_orientation()
     bin_pos = params["bin_pos"]
-    # The fingers reach finger_length below tool0. Aim the fingertips at half
-    # the object height (and never below 1 cm above the table) so that the
-    # object is actually between the jaws instead of being pinched by its top
-    # edge - with a constant tool height the fingertips only dip 5 mm below
-    # the object top for every object size.
+    # The fingers reach finger_length below tool0. Descend until the tips are
+    # ~6 mm above the table: that straddles every object in the scene (2-4.5 cm
+    # tall) and, unlike a target derived from z_top, does not depend on the
+    # accuracy of the height map. A constant tool height used to pinch only the
+    # top edge, which always slips.
     finger_length = params.get("finger_length", 0.07)
-    tip_z = max(0.01, 0.5 * z_top)
-    descend_z = tip_z + finger_length
+    descend_z = 0.006 + finger_length
     return [
         {"kind": "move", "pos": [x, y, descend_z + params["approach_offset"]],
          "rot": orient, "dur": params["dur_approach"]},

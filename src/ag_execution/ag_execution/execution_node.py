@@ -18,6 +18,7 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64MultiArray, Bool
 from std_srvs.srv import Trigger
+from tf2_ros import Buffer, TransformListener
 
 from ag_interfaces.srv import Grasp, Push, MoveView, Observe
 from ag_execution.kinematics import (
@@ -91,6 +92,7 @@ class ExecutionNode(Node):
         p = self.get_parameter
         self.tool_link = p("tool_link").value
         self.camera_link = p("camera_link").value
+        self.base_link = p("base_link").value
         views_flat = [float(v) for v in p("views_flat").value]
         views = [
             {
@@ -134,6 +136,7 @@ class ExecutionNode(Node):
         ]
 
         self._joint_positions = {}
+        self._hold_width = 0.0
         self._current_q = np.zeros(6)
         self._have_state = False
         self.create_subscription(
@@ -148,6 +151,8 @@ class ExecutionNode(Node):
         )
         self._arm_client = ActionClient(self, FollowJointTrajectory, p("arm_action").value)
         self._observe_cli = self.create_client(Observe, p("observe_service").value)
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
 
         # Blocking manipulation work lives in its own callback group: the
         # executor keeps delivering action results and joint states on other
@@ -412,6 +417,38 @@ class ExecutionNode(Node):
         except KeyError:
             return False
 
+    def _log_tool_pose(self, target_t):
+        """Compare the commanded tool pose with the one reported by TF.
+
+        This is what tells us whether a failed grasp is caused by the arm not
+        reaching the target or by something upstream (height map, object
+        placement). TF comes from robot_state_publisher + /joint_states, i.e.
+        the joint positions the robot actually reports.
+        """
+        try:
+            transform = self.tf_buffer.lookup_transform(
+                self.base_link, self.tool_link, rclpy.time.Time(),
+                timeout=rclpy.duration.Duration(seconds=0.5),
+            )
+        except Exception as exc:  # noqa: BLE001 - diagnostics only
+            self.get_logger().warn(
+                f"no TF {self.base_link}->{self.tool_link}: {type(exc).__name__}"
+            )
+            return
+        t = transform.transform.translation
+        actual = np.array([t.x, t.y, t.z], dtype=float)
+        target = np.asarray(target_t, dtype=float)[:3, 3]
+        error = float(np.linalg.norm(actual - target))
+        message = (
+            f"tool pose: commanded ({target[0]:.3f}, {target[1]:.3f}, {target[2]:.3f}) "
+            f"actual ({actual[0]:.3f}, {actual[1]:.3f}, {actual[2]:.3f}) "
+            f"error={error * 1000.0:.1f} mm"
+        )
+        if error > 0.02:
+            self.get_logger().warn(message)
+        else:
+            self.get_logger().info(message)
+
     def _step(self, step):
         kind = step["kind"]
         if kind == "move":
@@ -423,12 +460,14 @@ class ExecutionNode(Node):
             if not self._move_to_joints(q, step["dur"]):
                 self.get_logger().warn(f"trajectory did not reach {step['pos']}")
                 return False
+            self._log_tool_pose(target)
             return True
         if kind == "gripper":
             self._set_gripper(step["pos"], step["dur"])
             return True
         if kind == "hold_check":
             self._sleep(step["dur"])
+            self._hold_width = self._gripper_width()
             return self._is_holding()
         if kind == "view":
             cam_target = pose_from_rot_trans(
@@ -468,6 +507,7 @@ class ExecutionNode(Node):
         response.success = False
         response.object_cleared = False
         response.gripper_width = 0.0
+        self._hold_width = 0.0
         if not self._wait_ready():
             return response
         try:
@@ -502,7 +542,9 @@ class ExecutionNode(Node):
             self.get_logger().info(
                 f"grasp cell ({u},{v}) -> ({x:.3f}, {y:.3f}), z_top={z_top:.3f}, "
                 f"descend={plan[1]['pos'][2]:.3f}, held={held}, "
-                f"width={response.gripper_width:.4f} m"
+                f"width_at_hold={self._hold_width:.4f} m "
+                f"(closed={self.params['gripper_closed_gap']:.3f}, "
+                f"open={self.params['gripper_open_gap']:.3f})"
             )
         except Exception as exc:
             self.get_logger().error(
