@@ -14,8 +14,15 @@ import numpy as np
 
 
 def grasp_orientation():
-    """Tool z straight down, tool x forward: Rx(pi)."""
-    return np.diag([1.0, -1.0, -1.0])
+    """Fingers pointing down, closing axis along world x.
+
+    The fingers hang along **-tool z** (their joint sits at z=-0.01 and the
+    pads extend to z=-0.07 in the tool frame). Pointing tool z *down* therefore
+    flips the gripper upside down: the pads sit 1-7 cm ABOVE tool0 and can
+    never touch an object on the table. Keep tool z up (identity) so the pads
+    hang below the flange.
+    """
+    return np.eye(3)
 
 
 def gripper_width(params, q_left, q_right):
@@ -39,9 +46,10 @@ def is_holding(params, q_left, q_right):
 
 
 def push_orientation(theta):
-    """Tool z down; finger axis perpendicular to the push direction."""
+    """Fingers pointing down; pads straddle the object across the push line."""
     s, c = math.sin(theta), math.cos(theta)
-    return np.column_stack([[-s, c, 0.0], [c, s, 0.0], [0.0, 0.0, -1.0]])
+    # x and y span the horizontal plane, z stays up (see grasp_orientation).
+    return np.column_stack([[s, -c, 0.0], [c, s, 0.0], [0.0, 0.0, 1.0]])
 
 
 def grid_to_xy(grid, u, v):

@@ -53,6 +53,21 @@ def test_ik_grasp_points_across_workspace():
             assert np.linalg.norm(t[:3, 3] - [x, y, 0.095]) < 0.02
 
 
+def test_fingertips_hang_below_the_tool_at_the_grasp_pose():
+    """Regression: the old grasp orientation (tool z down) put the pads above."""
+    from ag_execution.primitives import grasp_orientation
+
+    model = _model()
+    target = _pose(grasp_orientation(), [0.45, 0.0, 0.10])
+    q = model.ik_retry(target, [np.zeros(6), [0, -0.4, 1.3, -0.5, 0, 0]])
+    assert q is not None
+    tool = model.fk(q)["tool0"]
+    pad = tool @ np.array([-0.038, 0.0, -0.01, 1.0])
+    tip = tool @ np.array([-0.038, 0.0, -0.07, 1.0])
+    assert pad[2] < 0.095   # 1 cm below the flange
+    assert tip[2] < 0.035   # fingertips near the table
+
+
 def test_joint_error_is_wrapped_across_the_pi_boundary():
     """+pi and -pi are the same pose, so the error there is zero, not 2*pi."""
     assert joint_error(np.array([3.1416]), np.array([-3.1416])) < 0.01

@@ -3,6 +3,7 @@ import math
 import numpy as np
 
 from ag_execution.primitives import (
+    grasp_orientation,
     grasp_plan,
     grid_to_xy,
     gripper_width,
@@ -53,8 +54,15 @@ def test_push_orientation_is_proper_rotation():
     r = push_orientation(math.pi / 4)
     assert np.allclose(r @ r.T, np.eye(3), atol=1e-6)
     assert np.linalg.det(r) > 0
-    # z axis points down
-    assert np.allclose(r[:, 2], [0, 0, -1])
+    # tool z stays up so the fingers (along -z) hang down towards the table
+    assert np.allclose(r[:, 2], [0, 0, 1])
+
+
+def test_grasp_orientation_keeps_the_fingers_below_the_flange():
+    r = grasp_orientation()
+    assert np.linalg.det(r) > 0
+    # +tool z -> the fingers are at -tool z, so this must point up
+    assert r[2, 2] > 0.9
 
 
 def test_plans_are_well_formed():
