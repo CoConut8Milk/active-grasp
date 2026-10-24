@@ -156,12 +156,17 @@ class ActiveGraspEnv:
         info = {"kind": kind}
 
         if kind == "grasp":
-            u, v = payload
+            requested_u, requested_v = payload
+            u, v = requested_u, requested_v
             # Grasp the centre of the object, not the tallest (edge) cell.
             occupied = (self.last_state[5] > 0.5) & (
                 self.last_state[0] > self.min_height
             )
             u, v = blob_centre(occupied, u, v)
+            if (u, v) != (requested_u, requested_v):
+                self.node.get_logger().info(
+                    f"grasp snapped from ({requested_u},{requested_v}) to ({u},{v})"
+                )
             req = Grasp.Request()
             req.u, req.v = u, v
             req.height = float(self.last_state[0, v, u])

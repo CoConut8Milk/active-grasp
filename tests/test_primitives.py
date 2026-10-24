@@ -20,10 +20,10 @@ def _params():
         "views": [
             {"pos": [0.45, 0.0, 0.72], "look": [0.45, 0.0, 0.02]}
         ],
-        "gripper_close": [0.018, 0.018],
+        "gripper_close": [0.026, 0.026],
         "gripper_open": [0.0, 0.0],
-        "gripper_open_gap": 0.052,
-        "gripper_closed_gap": 0.016,
+        "gripper_open_gap": 0.056,
+        "gripper_closed_gap": 0.004,
         "held_margin": 0.004,
         "approach_offset": 0.18,
         "grasp_offset": 0.065,
@@ -87,14 +87,14 @@ def test_grasp_descends_so_fingers_straddle_the_object():
 def test_hold_detection_uses_the_real_finger_geometry():
     params = _params()
     # Wide open: nothing between the jaws yet.
-    assert abs(gripper_width(params, 0.0, 0.0) - 0.052) < 1e-9
+    assert abs(gripper_width(params, 0.0, 0.0) - 0.056) < 1e-9
     assert not is_holding(params, 0.0, 0.0)
     # Fully closed on air: still not holding.
-    assert abs(gripper_width(params, 0.018, 0.018) - 0.016) < 1e-9
-    assert not is_holding(params, 0.018, 0.018)
-    # A 3 cm object stops each finger at 1.5 cm -> 2.2 cm remains.
-    assert abs(gripper_width(params, 0.015, 0.015) - 0.022) < 1e-9
-    assert is_holding(params, 0.015, 0.015)
+    assert abs(gripper_width(params, 0.026, 0.026) - 0.004) < 1e-9
+    assert not is_holding(params, 0.026, 0.026)
+    # A 3 cm object stops each finger at 1.3 cm -> 3 cm remains.
+    assert abs(gripper_width(params, 0.013, 0.013) - 0.030) < 1e-9
+    assert is_holding(params, 0.013, 0.013)
 
 
 def test_interpolate_joints_endpoints():
