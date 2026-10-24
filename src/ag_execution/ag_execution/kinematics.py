@@ -79,6 +79,20 @@ def nearest_joint_branch(target_q, current_q, lower, upper):
     return q
 
 
+def joint_error(a, b):
+    """Largest per-joint angular difference, wrapped into [-pi, pi].
+
+    These are revolute joints, so q and q +- 2*pi are the same physical pose.
+    The controller and /joint_states may report either branch; comparing raw
+    numbers then reports a bogus 2*pi error (6.28 rad) even though the arm is
+    exactly where it should be.
+    """
+    a = np.asarray(a, dtype=float)
+    b = np.asarray(b, dtype=float)
+    delta = (a - b + np.pi) % (2.0 * np.pi) - np.pi
+    return float(np.max(np.abs(delta)))
+
+
 class RobotModel:
     """Minimal URDF kinematic model for serial arms with fixed grippers."""
 

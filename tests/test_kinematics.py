@@ -4,6 +4,7 @@ import numpy as np
 
 from ag_execution.kinematics import (
     RobotModel,
+    joint_error,
     look_at_matrix,
     nearest_joint_branch,
     pose_from_rot_trans,
@@ -50,6 +51,13 @@ def test_ik_grasp_points_across_workspace():
             assert q is not None, f"IK failed at ({x:.2f}, {y:.2f})"
             t = model.fk(q)["tool0"]
             assert np.linalg.norm(t[:3, 3] - [x, y, 0.095]) < 0.02
+
+
+def test_joint_error_is_wrapped_across_the_pi_boundary():
+    """+pi and -pi are the same pose, so the error there is zero, not 2*pi."""
+    assert joint_error(np.array([3.1416]), np.array([-3.1416])) < 0.01
+    assert abs(joint_error(np.array([1.0, 0.0]), np.array([0.5, 0.0])) - 0.5) < 1e-9
+    assert joint_error(np.array([0.0, 2.0]), np.array([0.0, -2.0])) > 2.0
 
 
 def test_nearest_joint_branch_avoids_full_turn():

@@ -23,7 +23,8 @@ from tf2_ros import Buffer, TransformListener
 
 from ag_interfaces.srv import Grasp, Push, MoveView, Observe
 from ag_execution.kinematics import (
-    RobotModel, look_at_matrix, nearest_joint_branch, pose_from_rot_trans,
+    RobotModel, joint_error, look_at_matrix, nearest_joint_branch,
+    pose_from_rot_trans,
 )
 from ag_execution.primitives import (
     grasp_plan, push_plan, view_plan, grid_to_xy, interpolate_joints,
@@ -293,7 +294,8 @@ class ExecutionNode(Node):
         self.get_logger().info("moving to home pose...")
         if not self._move_to_joints(self.home_q, 2.0):
             raise RuntimeError("could not reach home pose at startup")
-        home_error = float(np.max(np.abs(self._current_q - self.home_q)))
+        self._sleep(0.3)  # let /joint_states catch up with the final command
+        home_error = joint_error(self._current_q, self.home_q)
         if home_error > 0.1:
             raise RuntimeError(
                 f"arm did not reach the home pose (max joint error "
@@ -392,7 +394,7 @@ class ExecutionNode(Node):
             # though the arm stopped exactly where we asked; check the joint
             # states before throwing the motion away.
             self._sleep(0.5)
-            error = float(np.max(np.abs(self._current_q - target_q)))
+            error = joint_error(self._current_q, target_q)
             self.get_logger().warn(
                 f"arm controller returned error_code={int(result.error_code)}; "
                 f"max joint error after settling is {error:.4f} rad"
