@@ -88,7 +88,9 @@ def generate_launch_description():
                     "-topic", "robot_description",
                     "-entity", "ag_arm",
                     "-x", "0.0", "-y", "0.0", "-z", "0.78",
-                    "-timeout", "30.0",
+                    # WSL 冷启动时 gzserver 加载世界可能要 30~60 s；30 s 会在
+                    # 世界刚加载完的前一刻放弃，导致机械臂根本没生成。
+                    "-timeout", "180.0",
                 ],
                 output="screen",
             ),
