@@ -70,7 +70,7 @@ class ExecutionNode(Node):
         self.declare_parameter("held_q_sum", 0.033)
         self.declare_parameter("approach_offset", 0.18)
         self.declare_parameter("grasp_offset", 0.065)
-        self.declare_parameter("finger_length", 0.07)
+        self.declare_parameter("finger_length", 0.08)
         self.declare_parameter("lift_height", 0.30)
         self.declare_parameter("push_height", 0.075)
         self.declare_parameter("push_length", 0.09)
@@ -428,25 +428,29 @@ class ExecutionNode(Node):
         real parallel gripper does with a force limit.
         """
         target = float(self.params["gripper_close"][0])
-        self._sleep(0.2)  # let the descent settle before touching the object
+        # Always start from a fully open, settled gripper: the previous action
+        # may still be opening, and a moving start made the width-based test
+        # fire on the first step with a negative "movement".
+        self._set_gripper(self.params["gripper_open"], 0.8)
         per_step = target / steps
-        expected = 2.0 * per_step  # width change if the jaws moved freely
-        prev_width = self._gripper_width()
         for i in range(1, steps + 1):
             q = per_step * i
             self._set_gripper([q, q], duration)
-            width = self._gripper_width()
-            moved = prev_width - width
-            # Blocked = the jaws stopped progressing. Comparing the *movement*
-            # per step is what distinguishes real contact from an early step
-            # (checking "width > closed gap" fires on the very first command).
-            if moved < 0.4 * expected:
+            positions = self._joint_positions
+            left = positions.get("finger_left")
+            right = positions.get("finger_right")
+            if left is None or right is None:
+                continue
+            achieved = min(left, right)
+            # Blocked = the joint could not follow the command. Comparing the
+            # *achieved* position with the command is unambiguous, unlike the
+            # width derivative (which is noisy while the jaws accelerate).
+            if achieved < 0.6 * q:
                 self.get_logger().info(
-                    f"jaw contact at q={q:.4f} m: moved {moved * 1000:.1f} mm "
-                    f"of {expected * 1000:.1f} mm, width={width:.4f} m"
+                    f"jaw contact at commanded q={q:.4f} m, achieved "
+                    f"{achieved:.4f} m, width={self._gripper_width():.4f} m"
                 )
                 return True
-            prev_width = width
         return self._is_holding()
 
     def _gripper_width(self):

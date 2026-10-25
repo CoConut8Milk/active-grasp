@@ -28,7 +28,7 @@ def _params():
         "held_margin": 0.004,
         "approach_offset": 0.18,
         "grasp_offset": 0.065,
-        "finger_length": 0.07,
+        "finger_length": 0.08,
         "lift_height": 0.30,
         "push_height": 0.075,
         "push_length": 0.09,
