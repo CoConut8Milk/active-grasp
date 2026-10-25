@@ -93,7 +93,10 @@
     <child link="upper_arm_link"/>
     <origin xyz="0 0 0.18" rpy="0 0 0"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-2.8" upper="2.8" effort="80" velocity="2.0"/>
+    <!-- Shoulder pitch. The old +-160 deg range let IK flip the arm between
+         "elbow up" and "elbow down" mid-trajectory; +-109 deg covers the
+         tabletop workspace and keeps a single home branch. -->
+    <limit lower="-2.2" upper="2.2" effort="80" velocity="2.0"/>
   </joint>
 
   <!-- ======================= upper arm ======================= -->
@@ -123,7 +126,8 @@
     <child link="forearm_link"/>
     <origin xyz="0 0 0.32" rpy="0 0 0"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-2.8" upper="2.8" effort="60" velocity="2.5"/>
+    <!-- Elbow: -126..80 deg, same reasoning (no self-folded solutions). -->
+    <limit lower="-2.2" upper="1.6" effort="60" velocity="2.5"/>
   </joint>
 
   <!-- ======================= forearm ======================= -->
@@ -153,7 +157,8 @@
     <child link="wrist1_link"/>
     <origin xyz="0 0 0.30" rpy="0 0 0"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-3.1416" upper="3.1416" effort="40" velocity="3.0"/>
+    <!-- Wrist pitch: +-149 deg instead of a full half turn. -->
+    <limit lower="-2.6" upper="2.6" effort="40" velocity="3.0"/>
   </joint>
 
   <!-- ======================= wrist 1 ======================= -->
@@ -183,7 +188,9 @@
     <child link="wrist2_link"/>
     <origin xyz="0 0 0.12" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-3.1416" upper="3.1416" effort="30" velocity="3.0"/>
+    <!-- Wrist yaw: +-149 deg; keeps the home pose away from +-pi so the
+         joint never has to unwind 2*pi when leaving home. -->
+    <limit lower="-2.6" upper="2.6" effort="30" velocity="3.0"/>
   </joint>
 
   <!-- ======================= wrist 2 ======================= -->

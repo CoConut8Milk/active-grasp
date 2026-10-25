@@ -42,15 +42,39 @@ def test_ik_grasp_points_across_workspace():
     model = _model()
     rng = np.random.default_rng(0)
     orient = np.diag([1.0, -1.0, -1.0])
-    seeds = [np.zeros(6), [0, -0.6, 1.4, -0.8, 0, 0]]
+    seeds = [
+        np.zeros(6),
+        [0, -0.4, 1.3, -0.5, 0, 0],
+        [0, -0.8, 1.6, -0.8, 0, 0],
+        [0.5, -0.5, 1.2, -0.7, 0, 0],
+        [-0.5, -0.5, 1.2, -0.7, 0, 0],
+    ]
 
-    for x in np.linspace(0.24, 0.66, 6):
-        for y in np.linspace(-0.20, 0.20, 5):
+    # Spawn region used by ag_gazebo (validated against the joint limits).
+    for x in np.linspace(0.40, 0.62, 6):
+        for y in np.linspace(-0.12, 0.12, 5):
             target = _pose(orient, [x, y, 0.095])
-            q = model.ik_retry(target, seeds, random_seed=int(x * 100 + y * 100))
+            q = model.ik_retry(target, seeds, random_seed=0)
             assert q is not None, f"IK failed at ({x:.2f}, {y:.2f})"
             t = model.fk(q)["tool0"]
             assert np.linalg.norm(t[:3, 3] - [x, y, 0.095]) < 0.02
+
+
+def test_consecutive_grasp_waypoints_keep_a_continuous_posture():
+    """Elbow/wrist must not flip between approach, descend and lift."""
+    from ag_execution.primitives import grasp_orientation
+
+    model = _model()
+    orient = grasp_orientation()
+    seeds = [np.zeros(6), [0, -0.4, 1.3, -0.5, 0, 0], [0, -0.8, 1.6, -0.8, 0, 0]]
+    q = model.ik_retry(pose_from_rot_trans(orient, [0.414, -0.089, 0.12]), seeds)
+    assert q is not None
+    for z in (0.30, 0.12, 0.30):
+        nxt = model.ik_retry(pose_from_rot_trans(orient, [0.414, -0.089, z]), [q] + seeds)
+        assert nxt is not None
+        delta = np.abs((nxt - q + np.pi) % (2 * np.pi) - np.pi)
+        assert delta.max() < 1.0, f"joint jumped {delta.max():.2f} rad at z={z}"
+        q = nxt
 
 
 def test_fingertips_hang_below_the_tool_at_the_grasp_pose():
@@ -80,13 +104,13 @@ def test_nearest_joint_branch_avoids_full_turn():
     model = _model()
     lower, upper = model.limits
     current = np.zeros(6)
-    current[3] = 3.14          # arm parked near the positive limit
+    current[0] = 3.14          # joint1 keeps the +-pi range
     target = current.copy()
-    target[3] = -3.14          # same pose, wrong branch coming out of IK
+    target[0] = -3.14          # same pose, wrong branch coming out of IK
 
     q = nearest_joint_branch(target, current, lower, upper)
-    assert abs(q[3] - 3.14) < 0.01
-    assert np.allclose(q[:3], target[:3])
+    assert abs(q[0] - 3.14) < 0.01
+    assert np.allclose(q[1:], target[1:])
 
     # Ordinary mid-range targets must be left untouched.
     mid = np.array([0.1, -0.2, 0.3, -0.4, 0.5, -0.6])

@@ -213,7 +213,7 @@ class RobotModel:
         return np.linalg.inv(t_cam) @ t_tool
 
     def ik(self, target_t, seed, link="tool0", pos_weight=1.0, ori_weight=0.35,
-           max_nfev=150):
+           max_nfev=150, posture_weight=0.03):
         """Solve IK for the 6D pose of `link`. Returns joints or None."""
         target_t = np.asarray(target_t, dtype=float)
         if not np.all(np.isfinite(target_t)):
@@ -236,7 +236,11 @@ class RobotModel:
             p_err = target_p - t[:3, 3]
             r_err = target_r.T @ t[:3, :3]
             rvec = Rotation.from_matrix(r_err).as_rotvec()
-            return np.concatenate([p_err, ori_weight * rvec])
+            # Posture regularisation keeps the solution near the seed. Without
+            # it the solver happily jumps between elbow-up/elbow-down branches,
+            # which produced 1-3 rad joint steps between consecutive waypoints.
+            posture = posture_weight * (np.asarray(q, dtype=float) - seed)
+            return np.concatenate([p_err, ori_weight * rvec, posture])
 
         try:
             result = least_squares(
@@ -258,7 +262,7 @@ class RobotModel:
             return None
         return result.x
 
-    def ik_retry(self, target_t, seeds, link="tool0", n_random=8, random_seed=0, **kwargs):
+    def ik_retry(self, target_t, seeds, link="tool0", n_random=12, random_seed=0, **kwargs):
         lower, upper = self.limits
         rng = np.random.default_rng(random_seed)
         for seed in seeds:

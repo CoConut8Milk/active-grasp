@@ -76,6 +76,7 @@ class ExecutionNode(Node):
         self.declare_parameter("push_length", 0.09)
         self.declare_parameter("view_dwell", 1.2)
         self.declare_parameter("trajectory_steps", 8)
+        self.declare_parameter("max_joint_speed", 0.6)
         self.declare_parameter("verify_objects", True)
         # 同样用扁平数组：每个种子组 6 个关节角
         self.declare_parameter("seed_sets_flat", [
@@ -135,6 +136,7 @@ class ExecutionNode(Node):
         self.min_grasp_height = p("min_grasp_height").value
         self.held_q_sum = p("held_q_sum").value
         self.traj_steps = p("trajectory_steps").value
+        self.max_joint_speed = float(p("max_joint_speed").value)
         self.joint_lower, self.joint_upper = self.model.limits
         seeds_flat = [float(v) for v in p("seed_sets_flat").value]
         self.seed_sets = [
@@ -345,6 +347,18 @@ class ExecutionNode(Node):
         # trajectories that touch them, and a state message can report a joint
         # a hair beyond its limit.
         target_q = np.clip(target_q, self.joint_lower + 1e-6, self.joint_upper - 1e-6)
+        # Never ask the arm for a large configuration change in a short time:
+        # the gazebo position loop is slow and aborts such trajectories.
+        jump = float(np.max(np.abs(
+            (target_q - self._current_q + np.pi) % (2.0 * np.pi) - np.pi
+        )))
+        needed = jump / max(self.max_joint_speed, 1e-3)
+        if needed > duration:
+            self.get_logger().info(
+                f"stretching move from {duration:.1f} s to {needed:.1f} s "
+                f"for a {jump:.2f} rad configuration change"
+            )
+            duration = needed
         waypoints = interpolate_joints(
             self._current_q, target_q, steps=self.traj_steps
         )

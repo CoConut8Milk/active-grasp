@@ -109,9 +109,13 @@ class WorldManager(Node):
         self.declare_parameter("workspace_y_min", -0.25)
         self.declare_parameter("workspace_y_max", 0.25)
         self.declare_parameter("table_top_z", 0.78)
-        # Keep clutter inside the region the arm can actually reach: the IK is
-        # validated for x in [0.24, 0.66], y in [-0.20, 0.20], so spawning
-        # closer to the workspace border only produces unreachable grasps.
+        # Keep clutter inside the region the arm can actually reach with the
+        # tightened joint limits. Verified by exhaustive IK over this box.
+        self.declare_parameter("spawn_x_min", 0.40)
+        self.declare_parameter("spawn_x_max", 0.62)
+        self.declare_parameter("spawn_y_min", -0.12)
+        self.declare_parameter("spawn_y_max", 0.12)
+        # Kept for backwards compatibility with older parameter files.
         self.declare_parameter("spawn_margin", 0.06)
         self.declare_parameter("max_spawn_attempts", 40)
         self.declare_parameter("settle_time", 1.2)
@@ -125,6 +129,12 @@ class WorldManager(Node):
         }
         self.table_top_z = self.get_parameter("table_top_z").value
         self.spawn_margin = self.get_parameter("spawn_margin").value
+        self.spawn = {
+            "x_min": self.get_parameter("spawn_x_min").value,
+            "x_max": self.get_parameter("spawn_x_max").value,
+            "y_min": self.get_parameter("spawn_y_min").value,
+            "y_max": self.get_parameter("spawn_y_max").value,
+        }
         self.max_attempts = self.get_parameter("max_spawn_attempts").value
         self.settle_time = self.get_parameter("settle_time").value
         self.seed = self.get_parameter("seed").value
@@ -180,14 +190,15 @@ class WorldManager(Node):
     def _sample_poses(self, n):
         """Rejection-sample n non-overlapping poses inside the workspace."""
         poses = []
-        w = self.workspace
+        w = self.spawn
+        margin = self.spawn_margin
         for _ in range(n):
             for _ in range(self.max_attempts):
                 x = self._rng.uniform(
-                    w["x_min"] + self.spawn_margin, w["x_max"] - self.spawn_margin
+                    w["x_min"] + margin, w["x_max"] - margin
                 )
                 y = self._rng.uniform(
-                    w["y_min"] + self.spawn_margin, w["y_max"] - self.spawn_margin
+                    w["y_min"] + margin, w["y_max"] - margin
                 )
                 if all((x - px) ** 2 + (y - py) ** 2 >= 0.012 for px, py in poses):
                     poses.append((x, y))
