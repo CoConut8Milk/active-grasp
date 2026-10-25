@@ -58,14 +58,14 @@ def test_fingertips_hang_below_the_tool_at_the_grasp_pose():
     from ag_execution.primitives import grasp_orientation
 
     model = _model()
-    target = _pose(grasp_orientation(), [0.45, 0.0, 0.10])
+    target = _pose(grasp_orientation(), [0.45, 0.0, 0.12])
     q = model.ik_retry(target, [np.zeros(6), [0, -0.4, 1.3, -0.5, 0, 0]])
     assert q is not None
     tool = model.fk(q)["tool0"]
-    pad = tool @ np.array([-0.038, 0.0, -0.01, 1.0])
-    tip = tool @ np.array([-0.038, 0.0, -0.07, 1.0])
-    assert pad[2] < 0.095   # 1 cm below the flange
-    assert tip[2] < 0.035   # fingertips near the table
+    pad = tool @ np.array([-0.040, 0.0, -0.030, 1.0])
+    tip = tool @ np.array([-0.040, 0.0, -0.105, 1.0])
+    assert pad[2] < 0.095   # 3 cm below the flange
+    assert 0.005 < tip[2] < 0.035   # fingertips near, but above, the table
 
 
 def test_joint_error_is_wrapped_across_the_pi_boundary():

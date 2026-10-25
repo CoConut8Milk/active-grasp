@@ -27,18 +27,17 @@ execution_node:
     grid_width: 48
     grid_height: 48
     min_grasp_height: 0.008
-    gripper_close: [0.034, 0.034]
+    gripper_close: [0.030, 0.030]
     gripper_open: [0.0, 0.0]
-    # 指间净空：全开 7.0 cm（3.4 cm 的物体每侧有 18 mm 余量，下降时不会撞飞物体），
-    # 全闭 0.2 cm（2~3.4 cm 的物体都会被指面先挡住，不会穿过）。
-    gripper_open_gap: 0.070
-    gripper_closed_gap: 0.002
+    # 指间净空：全开 6.4 cm（3.4 cm 的物体每侧 15 mm 余量），全闭 0.4 cm。
+    gripper_open_gap: 0.064
+    gripper_closed_gap: 0.004
     held_margin: 0.004
     held_q_sum: 0.033
     approach_offset: 0.18
     grasp_offset: 0.065     # 旧参数，抓取深度现在按 finger_length 自动计算
-    # 指尖在 tool0 下方 8 cm（= 手指关节 -0.01 + 手指长 0.07）
-    finger_length: 0.08
+    # 指尖在 tool0 下方 10.5 cm（= 掌部 + 根关节 -0.03 + 手指长 0.075）
+    finger_length: 0.105
     lift_height: 0.30
     push_height: 0.075
     push_length: 0.09

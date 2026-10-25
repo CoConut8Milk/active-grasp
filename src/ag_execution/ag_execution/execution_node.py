@@ -62,15 +62,15 @@ class ExecutionNode(Node):
         self.declare_parameter("grid_width", 48)
         self.declare_parameter("grid_height", 48)
         self.declare_parameter("min_grasp_height", 0.008)
-        self.declare_parameter("gripper_close", [0.034, 0.034])
+        self.declare_parameter("gripper_close", [0.030, 0.030])
         self.declare_parameter("gripper_open", [0.0, 0.0])
-        self.declare_parameter("gripper_open_gap", 0.070)
-        self.declare_parameter("gripper_closed_gap", 0.002)
+        self.declare_parameter("gripper_open_gap", 0.064)
+        self.declare_parameter("gripper_closed_gap", 0.004)
         self.declare_parameter("held_margin", 0.004)
         self.declare_parameter("held_q_sum", 0.033)
         self.declare_parameter("approach_offset", 0.18)
         self.declare_parameter("grasp_offset", 0.065)
-        self.declare_parameter("finger_length", 0.08)
+        self.declare_parameter("finger_length", 0.105)
         self.declare_parameter("lift_height", 0.30)
         self.declare_parameter("push_height", 0.075)
         self.declare_parameter("push_length", 0.09)
@@ -127,10 +127,10 @@ class ExecutionNode(Node):
             # WSL 里仿真慢于实时，且 gazebo_ros2_control 的位置环增益有限：
             # 轨迹过快会让关节跟不上，控制器直接以 goal_time_tolerance 中止
             # （日志里 Position Error 0.05~0.16 rad 就是这么来的）。
-            "dur_approach": 1.2, "dur_descend": 1.8, "dur_close": 1.4,
-            "dur_hold_check": 0.5, "dur_lift": 1.2, "dur_transit": 1.8,
-            "dur_open": 0.6, "dur_home": 1.8, "dur_push": 1.0,
-            "dur_retreat": 0.8, "dur_view": 1.4,
+            "dur_approach": 2.0, "dur_descend": 2.2, "dur_close": 1.4,
+            "dur_hold_check": 0.5, "dur_lift": 2.0, "dur_transit": 2.8,
+            "dur_open": 0.8, "dur_home": 2.5, "dur_push": 1.6,
+            "dur_retreat": 1.2, "dur_view": 2.0,
         }
         self.min_grasp_height = p("min_grasp_height").value
         self.held_q_sum = p("held_q_sum").value
@@ -419,7 +419,24 @@ class ExecutionNode(Node):
         self._gripper_pub.publish(msg)
         self._sleep(duration)
 
-    def _grasp_close(self, steps=8, duration=0.3):
+    def _wait_gripper_stable(self, timeout=5.0, epsilon=0.0005):
+        """Wait until the measured jaw width stops changing."""
+        previous = self._gripper_width()
+        stable = 0
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline and rclpy.ok():
+            self._sleep(0.2)
+            width = self._gripper_width()
+            if abs(width - previous) < epsilon:
+                stable += 1
+                if stable >= 2:
+                    return True
+            else:
+                stable = 0
+            previous = width
+        return False
+
+    def _grasp_close(self, steps=4, duration=0.9):
         """Close the jaws gradually and stop as soon as they are blocked.
 
         A single hard close command shoves a light object out of the jaws
@@ -431,26 +448,28 @@ class ExecutionNode(Node):
         # Always start from a fully open, settled gripper: the previous action
         # may still be opening, and a moving start made the width-based test
         # fire on the first step with a negative "movement".
-        self._set_gripper(self.params["gripper_open"], 0.8)
+        self._set_gripper(self.params["gripper_open"], 0.2)
+        self._wait_gripper_stable(timeout=5.0)
         per_step = target / steps
+        expected = 2.0 * per_step
+        prev_width = self._gripper_width()
         for i in range(1, steps + 1):
             q = per_step * i
             self._set_gripper([q, q], duration)
-            positions = self._joint_positions
-            left = positions.get("finger_left")
-            right = positions.get("finger_right")
-            if left is None or right is None:
-                continue
-            achieved = min(left, right)
-            # Blocked = the joint could not follow the command. Comparing the
-            # *achieved* position with the command is unambiguous, unlike the
-            # width derivative (which is noisy while the jaws accelerate).
-            if achieved < 0.6 * q:
+            width = self._gripper_width()
+            moved = prev_width - width
+            # The gazebo position loop follows the command with a rather slow
+            # first order response, so compare the achieved width change with
+            # a generous fraction of the expected change: blocked jaws move
+            # (almost) nothing, free jaws clearly do.
+            if moved < 0.25 * expected:
                 self.get_logger().info(
-                    f"jaw contact at commanded q={q:.4f} m, achieved "
-                    f"{achieved:.4f} m, width={self._gripper_width():.4f} m"
+                    f"jaw contact at commanded q={q:.4f} m: jaws moved "
+                    f"{moved * 1000:.1f} of {expected * 1000:.1f} mm, "
+                    f"width={width:.4f} m"
                 )
                 return True
+            prev_width = width
         return self._is_holding()
 
     def _gripper_width(self):
