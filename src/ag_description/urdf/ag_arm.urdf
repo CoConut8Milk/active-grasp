@@ -364,7 +364,11 @@
   <joint name="camera_joint" type="fixed">
     <parent link="wrist3_link"/>
     <child link="camera_link"/>
-    <origin xyz="0.06 0 0.04" rpy="0 -1.5708 0"/>
+    <!-- The eye-in-hand camera looks along -tool z, i.e. the same way as the
+         fingers. With the old +tool z mount, looking at the table put the
+         gripper upside down and every grasp needed a 180 degree wrist turn
+         (the 3.1 rad "configuration change" in the logs). -->
+    <origin xyz="0.06 0 0.04" rpy="0 1.5708 0"/>
   </joint>
 
   <link name="camera_link">

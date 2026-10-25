@@ -32,10 +32,12 @@ def test_fk_chain_geometry():
     t = model.fk(np.zeros(6))
     # Vertical chain: tool0 is the sum of all z-offsets above base.
     assert np.allclose(t["tool0"][:3, 3], [0.0, 0.0, 1.22], atol=1e-3)
-    # Camera sits to the +x side, viewing along +z (chain direction).
+    # Camera sits to the +x side and looks along -z, i.e. the same way as the
+    # fingers (the eye-in-hand mount was flipped so viewing and grasping share
+    # one wrist orientation).
     cam = t["camera_link"]
     assert cam[:3, 3][0] > 0.05
-    assert np.allclose(cam[:3, :3] @ np.array([1.0, 0, 0]), [0, 0, 1], atol=1e-4)
+    assert np.allclose(cam[:3, :3] @ np.array([1.0, 0, 0]), [0, 0, -1], atol=1e-4)
 
 
 def test_ik_grasp_points_across_workspace():

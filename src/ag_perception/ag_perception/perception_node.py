@@ -63,7 +63,7 @@ class PerceptionNode(Node):
         self.declare_parameter("valid_border", 3)
         # Image axis convention of the simulator (see perception.yaml).
         self.declare_parameter("u_sign", -1.0)
-        self.declare_parameter("v_sign", -1.0)
+        self.declare_parameter("v_sign", 1.0)
         self.declare_parameter("hfov", 1.047197551)
         self.declare_parameter("image_width", 320)
         self.declare_parameter("image_height", 240)

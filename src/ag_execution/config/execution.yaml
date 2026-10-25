@@ -9,8 +9,10 @@ execution_node:
     base_link: base_link
     tool_link: tool0
     camera_link: camera_link
-    home_camera_pos: [0.68, 0.0, 0.62]
-    home_camera_look: [0.45, 0.0, 0.02]
+    # 桌面正上方的俯视 home 位：IK 解出的 joint1≈0（不会整机转身 180°），
+    # 且相机与手指同向，home→抓取不需要翻转腕部。
+    home_camera_pos: [0.50, 0.0, 0.70]
+    home_camera_look: [0.50, 0.0, 0.02]
     # 放到回收盒正上方、离盒口约 13 cm（比 0.32 更容易解算，误差更小）
     bin_pos: [0.45, -0.34, 0.29]
     # ROS 2 参数不支持字典列表：每个视角 6 个数 = [pos_x, pos_y, pos_z, look_x, look_y, look_z]

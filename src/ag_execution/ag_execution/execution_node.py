@@ -44,8 +44,8 @@ class ExecutionNode(Node):
         self.declare_parameter("base_link", "base_link")
         self.declare_parameter("tool_link", "tool0")
         self.declare_parameter("camera_link", "camera_link")
-        self.declare_parameter("home_camera_pos", [0.68, 0.0, 0.62])
-        self.declare_parameter("home_camera_look", [0.45, 0.0, 0.02])
+        self.declare_parameter("home_camera_pos", [0.50, 0.0, 0.70])
+        self.declare_parameter("home_camera_look", [0.50, 0.0, 0.02])
         self.declare_parameter("bin_pos", [0.45, -0.34, 0.32])
         # ROS 2 参数不支持“字典列表”，这里用扁平数组：
         # 每个视角 6 个数 = [pos_x, pos_y, pos_z, look_x, look_y, look_z]
