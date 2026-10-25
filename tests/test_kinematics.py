@@ -83,7 +83,16 @@ def test_fingertips_hang_below_the_tool_at_the_grasp_pose():
 
     model = _model()
     target = _pose(grasp_orientation(), [0.45, 0.0, 0.12])
-    q = model.ik_retry(target, [np.zeros(6), [0, -0.4, 1.3, -0.5, 0, 0]])
+    q = model.ik_retry(
+        target,
+        [
+            np.zeros(6),
+            [0, -0.4, 1.3, -0.5, 0, 0],
+            [0, -0.8, 1.6, -0.8, 0, 0],
+            [0.5, -0.5, 1.2, -0.7, 0, 0],
+            [-0.5, -0.5, 1.2, -0.7, 0, 0],
+        ],
+    )
     assert q is not None
     tool = model.fk(q)["tool0"]
     pad = tool @ np.array([-0.040, 0.0, -0.030, 1.0])
@@ -104,13 +113,13 @@ def test_nearest_joint_branch_avoids_full_turn():
     model = _model()
     lower, upper = model.limits
     current = np.zeros(6)
-    current[0] = 3.14          # joint1 keeps the +-pi range
+    current[5] = 3.14          # joint6 keeps the +-pi range
     target = current.copy()
-    target[0] = -3.14          # same pose, wrong branch coming out of IK
+    target[5] = -3.14          # same pose, wrong branch coming out of IK
 
     q = nearest_joint_branch(target, current, lower, upper)
-    assert abs(q[0] - 3.14) < 0.01
-    assert np.allclose(q[1:], target[1:])
+    assert abs(q[5] - 3.14) < 0.01
+    assert np.allclose(q[:5], target[:5])
 
     # Ordinary mid-range targets must be left untouched.
     mid = np.array([0.1, -0.2, 0.3, -0.4, 0.5, -0.6])

@@ -164,6 +164,11 @@ class ActiveGraspEnv:
                 self.last_state[0] > self.min_height
             )
             u, v = blob_centre(occupied, u, v)
+            # Keep the snapped cell inside the executable border: the centroid
+            # of an edge blob can land on a cell the arm cannot reach.
+            b = self.action_space.border
+            u = int(np.clip(u, b, self.action_space.width - 1 - b))
+            v = int(np.clip(v, b, self.action_space.height - 1 - b))
             if (u, v) != (requested_u, requested_v):
                 self.node.get_logger().info(
                     f"grasp snapped from ({requested_u},{requested_v}) to ({u},{v})"

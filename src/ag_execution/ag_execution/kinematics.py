@@ -262,16 +262,28 @@ class RobotModel:
             return None
         return result.x
 
-    def ik_retry(self, target_t, seeds, link="tool0", n_random=12, random_seed=0, **kwargs):
+    def ik_retry(self, target_t, seeds, link="tool0", n_random=8, random_seed=0, **kwargs):
         lower, upper = self.limits
         rng = np.random.default_rng(random_seed)
+        reference = np.asarray(seeds[0], dtype=float) if len(seeds) else None
+        best_solution = None
+        best_distance = float("inf")
         for seed in seeds:
             try:
                 q = self.ik(target_t, seed, link=link, **kwargs)
             except Exception:  # defensive: never crash the node
                 q = None
             if q is not None:
-                return q
+                # Collect candidates and prefer the one closest to the current
+                # configuration (seeds[0]); returning the first converged seed
+                # let the solver hand back a mirrored "arm turned around"
+                # solution that was 1 m away from the previous pose.
+                distance = (
+                    float(np.max(np.abs((q - reference + np.pi) % (2.0 * np.pi) - np.pi)))
+                    if reference is not None else 0.0
+                )
+                if distance < best_distance:
+                    best_solution, best_distance = q, distance
         for _ in range(int(n_random)):
             seed = lower + (upper - lower) * rng.random(6)
             try:
@@ -279,5 +291,10 @@ class RobotModel:
             except Exception:
                 q = None
             if q is not None:
-                return q
-        return None
+                distance = (
+                    float(np.max(np.abs((q - reference + np.pi) % (2.0 * np.pi) - np.pi)))
+                    if reference is not None else 0.0
+                )
+                if distance < best_distance:
+                    best_solution, best_distance = q, distance
+        return best_solution

@@ -63,6 +63,10 @@
     <child link="shoulder_link"/>
     <origin xyz="0 0 0.12" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
+    <!-- Base yaw keeps the full range, but the solver now always picks the IK
+         solution closest to the current posture (see kinematics.ik_retry):
+         that prevents the "turn the whole arm around" solution which used to
+         leave the tool 1 m away from the target. -->
     <limit lower="-3.1416" upper="3.1416" effort="80" velocity="2.0"/>
   </joint>
 
