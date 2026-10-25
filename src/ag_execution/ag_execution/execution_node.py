@@ -62,10 +62,10 @@ class ExecutionNode(Node):
         self.declare_parameter("grid_width", 48)
         self.declare_parameter("grid_height", 48)
         self.declare_parameter("min_grasp_height", 0.008)
-        self.declare_parameter("gripper_close", [0.026, 0.026])
+        self.declare_parameter("gripper_close", [0.034, 0.034])
         self.declare_parameter("gripper_open", [0.0, 0.0])
-        self.declare_parameter("gripper_open_gap", 0.056)
-        self.declare_parameter("gripper_closed_gap", 0.004)
+        self.declare_parameter("gripper_open_gap", 0.070)
+        self.declare_parameter("gripper_closed_gap", 0.002)
         self.declare_parameter("held_margin", 0.004)
         self.declare_parameter("held_q_sum", 0.033)
         self.declare_parameter("approach_offset", 0.18)
@@ -127,7 +127,7 @@ class ExecutionNode(Node):
             # WSL 里仿真慢于实时，且 gazebo_ros2_control 的位置环增益有限：
             # 轨迹过快会让关节跟不上，控制器直接以 goal_time_tolerance 中止
             # （日志里 Position Error 0.05~0.16 rad 就是这么来的）。
-            "dur_approach": 1.2, "dur_descend": 1.4, "dur_close": 1.4,
+            "dur_approach": 1.2, "dur_descend": 1.8, "dur_close": 1.4,
             "dur_hold_check": 0.5, "dur_lift": 1.2, "dur_transit": 1.8,
             "dur_open": 0.6, "dur_home": 1.8, "dur_push": 1.0,
             "dur_retreat": 0.8, "dur_view": 1.4,
