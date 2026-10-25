@@ -36,7 +36,12 @@ class ActiveGraspEnv:
     def __init__(self, node, height=48, width=48, n_dirs=8, n_views=4,
                  max_steps=25, z_max=0.35):
         self.node = node
-        self.action_space = ActionSpace(height, width, n_dirs, n_views)
+        self.action_space = ActionSpace(
+            height, width, n_dirs, n_views,
+            # Cells that map to x 0.40..0.62, y -0.12..0.12 (see ag_gazebo
+            # spawn box): the tightened joint limits cannot reach outside it.
+            reach_u=(19, 39), reach_v=(12, 34),
+        )
         self.max_steps = max_steps
         self.min_height = 0.008  # matches ag_execution's min_grasp_height
         self.z_max = z_max

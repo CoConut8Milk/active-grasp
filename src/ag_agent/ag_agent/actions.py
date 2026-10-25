@@ -25,7 +25,8 @@ def blob_centre(occupied, u, v, radius=3):
 
 
 class ActionSpace:
-    def __init__(self, height, width, n_dirs=8, n_views=4, border=3):
+    def __init__(self, height, width, n_dirs=8, n_views=4, border=3,
+                 reach_u=None, reach_v=None):
         self.height = int(height)
         self.width = int(width)
         self.n_dirs = int(n_dirs)
@@ -35,6 +36,11 @@ class ActionSpace:
         # cell in every episode). Never grasp there. Kept small for tiny test
         # grids so that they still have valid interior cells.
         self.border = max(0, min(int(border), (min(self.height, self.width) - 1) // 2))
+        # Optional explicit reachable cell window (inclusive), on top of the
+        # border. Keeps the agent from targeting cells the arm cannot reach
+        # after the joint limits were tightened.
+        self.reach_u = tuple(reach_u) if reach_u else None
+        self.reach_v = tuple(reach_v) if reach_v else None
         self.grasp_size = self.height * self.width
         self.push_size = self.grasp_size * self.n_dirs
         self.view_size = self.n_views
@@ -76,6 +82,12 @@ class ActionSpace:
             ] = True
         else:
             interior[:] = True
+        if self.reach_u is not None:
+            interior[:, : max(0, self.reach_u[0])] = False
+            interior[:, self.reach_u[1] + 1:] = False
+        if self.reach_v is not None:
+            interior[: max(0, self.reach_v[0]), :] = False
+            interior[self.reach_v[1] + 1:, :] = False
         occupied = ((state6[5] > 0.5) & interior).reshape(-1)
         mask = np.zeros(self.total, dtype=bool)
         mask[: self.grasp_size] = occupied
