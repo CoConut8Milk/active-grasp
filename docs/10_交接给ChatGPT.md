@@ -14,11 +14,25 @@ bash scripts/export_context.sh
 会生成：
 
 ```
-context/active-grasp-context-<时间戳>.tar.gz
+context/active-grasp-context-<时间戳>.md      ← 推荐
+context/active-grasp-context-<时间戳>.tar.gz  ← 完整包
 ```
 
-然后在 ChatGPT 网页端新建对话，**附加这个压缩包**，并粘贴
+然后在 ChatGPT 网页端新建对话，**附加这个 `.md` 文件**（或压缩包），并粘贴
 `HANDOFF.md` 第 9 节的开场提示。
+
+## ChatGPT Work 专用说明
+
+ChatGPT Work 是**云端任务**，同样读不到你本地的 WSL 文件和本地 Codex
+会话。可用方式只有两种：
+
+1. **新 Work 任务 + 附件**：把 `active-grasp-context-<时间戳>.md` 直接
+   附加到 Work 任务里，粘贴开场提示。单文件最容易读取。
+2. **新 Work 任务 + GitHub 连接**：把仓库连接到该 Work 项目，让它读
+   `HANDOFF.md`。私有仓库必须用连接方式，不能只给链接。
+
+注意分工：Work 能改代码、读日志、写文档，但**不能运行你本地的 Gazebo**。
+仿真仍然在实验室机器上跑，把终端日志贴给 Work 即可。
 
 ## 方式 B：让 ChatGPT 直接读 GitHub
 

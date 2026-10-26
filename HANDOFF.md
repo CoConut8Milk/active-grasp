@@ -135,6 +135,11 @@ bash scripts/run_vlm_demo.sh
 
 ## 9. 给 ChatGPT 的开场提示（可直接粘贴）
 
+> 使用 ChatGPT Work 时：新建一个 Work 任务，把
+> `context/active-grasp-context-<时间戳>.md`（由 `scripts/export_context.sh`
+> 生成）作为附件上传，再粘贴下面的提示。Work 运行在云端，读不到本地
+> WSL 文件，也不能替你跑 Gazebo——仿真日志仍然由你本地运行后贴给它。
+
 ```text
 你接手一个 ROS2 Humble + Gazebo Classic 的机器人抓取项目（Active-Grasp）。
 请先阅读附件中的 HANDOFF.md、README.md、config/experiment.yaml 和
