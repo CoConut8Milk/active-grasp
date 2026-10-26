@@ -11,6 +11,8 @@ from launch_ros.actions import Node
 def generate_launch_description():
     pkg_ag_bringup = get_package_share_directory("ag_bringup")
     checkpoint = LaunchConfiguration("checkpoint")
+    policy = LaunchConfiguration("policy")
+    config = LaunchConfiguration("config")
 
     sim = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -22,10 +24,20 @@ def generate_launch_description():
         package="ag_agent",
         executable="demo",
         name="ag_demo",
-        arguments=["--checkpoint", checkpoint, "--objects", "5"],
+        arguments=[
+            "--policy", policy,
+            "--checkpoint", checkpoint,
+            "--config", config,
+        ],
         output="screen",
     )
     return LaunchDescription(
-        [DeclareLaunchArgument("checkpoint", default_value=""), sim, demo]
+        [
+            DeclareLaunchArgument("checkpoint", default_value=""),
+            DeclareLaunchArgument("policy", default_value=""),
+            DeclareLaunchArgument("config", default_value=""),
+            sim,
+            demo,
+        ]
     )
 

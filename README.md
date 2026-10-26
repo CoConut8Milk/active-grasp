@@ -56,6 +56,7 @@
 
 ```
 active-grasp/
+├── config/                # 实验配置（策略/场景/API，唯一需要改的入口）
 ├── src/
 │   ├── ag_interfaces/     # 自定义 ROS2 服务接口
 │   ├── ag_description/    # 机械臂 URDF + ros2_control 配置
@@ -64,7 +65,7 @@ active-grasp/
 │   ├── ag_execution/      # FK/IK + 抓/推/看运动原语
 │   ├── ag_agent/          # DDQN 智能体、环境封装、训练/评估
 │   └── ag_bringup/        # 顶层 launch
-├── tests/                 # 17 个纯 Python 单元测试（可在任何机器跑）
+├── tests/                 # 35 个纯 Python 单元测试（可在任何机器跑）
 ├── scripts/               # 安装/构建/训练/演示脚本
 ├── docker/                # Humble + Gazebo 容器
 └── docs/                  # 中文教程与讲解（见下文索引）
@@ -89,6 +90,12 @@ bash scripts/train.sh
 
 # 5. 评估训练好的策略
 bash scripts/evaluate.sh checkpoints/agent_final.pth
+
+# 6. 用新的 API 模型（任意 OpenAI 兼容端点）跑策略实验
+cp .env.example .env       # 填入 AGENT_API_KEY
+source .env
+bash scripts/check_api.sh
+bash scripts/run_vlm_demo.sh
 ```
 
 更细的步骤、每一步的预期输出和验收标准见
@@ -98,8 +105,8 @@ bash scripts/evaluate.sh checkpoints/agent_final.pth
 
 本项目生成于 Windows 机器，因此这里能验证的都验证了：
 
-- ✅ 17/17 单元测试通过（高度图融合、相机标定、不确定度、FK/IK、
-  动作空间、回放缓存）；
+- ✅ 35/35 单元测试通过（高度图融合、相机标定、不确定度、FK/IK、
+  动作空间、回放缓存、API 策略提示词/解析/回退）；
 - ✅ 36/36 个 Python 文件语法编译通过；
 - ✅ 所有 URDF/world/package.xml 与 YAML 配置格式校验通过；
 - ⚠️ ROS2/Gazebo 运行时链路（插件话题名、控制器行为、抓取成功率）只能在
@@ -117,6 +124,7 @@ bash scripts/evaluate.sh checkpoints/agent_final.pth
 | [06_常见问题排查](docs/06_常见问题排查.md) | 故障诊断手册 |
 | [07_论文文献清单](docs/07_论文文献清单.md) | 相关文献与阅读顺序 |
 | [08_简历与申请材料](docs/08_简历与申请材料.md) | 简历条目、个人陈述、演示视频脚本 |
+| [09_API策略实验](docs/09_API策略实验.md) | 用任意 OpenAI 兼容 API 跑策略实验、配置、日志与对照实验 |
 
 ## 许可
 

@@ -1,0 +1,45 @@
+# =============================================================================
+# Active-Grasp central experiment configuration
+# -----------------------------------------------------------------------------
+# One file describes an experiment: scene size, which policy runs, and where
+# results are written.  Secrets never live here - only the NAME of the
+# environment variable that holds the API key.
+#
+# Usage:
+#   bash scripts/run_demo.sh                       # uses policy.kind below
+#   AGENT_API_KEY=... bash scripts/run_vlm_demo.sh # forces the API policy
+# =============================================================================
+
+scene:
+  objects: 5            # clutter items per episode
+  max_steps: 25         # action budget per episode
+
+policy:
+  kind: greedy          # greedy | checkpoint | vlm
+  checkpoint: ""        # used when kind == checkpoint
+
+  vlm:
+    # Any OpenAI-compatible /chat/completions endpoint:
+    #   OpenAI            https://api.openai.com/v1
+    #   DeepSeek          https://api.deepseek.com/v1
+    #   DashScope/Qwen    https://dashscope.aliyuncs.com/compatible-mode/v1
+    #   Moonshot          https://api.moonshot.cn/v1
+    #   local vLLM/Ollama http://127.0.0.1:8000/v1
+    base_url: "https://api.openai.com/v1"
+    model: "gpt-4o-mini"
+    api_key_env: "AGENT_API_KEY"
+    temperature: 0.0
+    max_tokens: 300
+    timeout_s: 30.0
+    retries: 2
+    # Attach a rendered height-map PNG as a second (image) message.
+    include_image: false
+    image_max_side: 96
+
+logging:
+  out_dir: "results/api_runs"
+  save_jsonl: true
+
+safety:
+  # What to do when the API call fails or returns an invalid action.
+  fallback: greedy      # greedy | none
