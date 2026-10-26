@@ -17,6 +17,9 @@ venv/
 # Secrets (API keys)
 .env
 
+# Handoff bundles for ChatGPT (generated, may contain logs)
+context/
+
 # Training artifacts
 runs/
 checkpoints/

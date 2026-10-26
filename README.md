@@ -125,6 +125,7 @@ bash scripts/run_vlm_demo.sh
 | [07_论文文献清单](docs/07_论文文献清单.md) | 相关文献与阅读顺序 |
 | [08_简历与申请材料](docs/08_简历与申请材料.md) | 简历条目、个人陈述、演示视频脚本 |
 | [09_API策略实验](docs/09_API策略实验.md) | 用任意 OpenAI 兼容 API 跑策略实验、配置、日志与对照实验 |
+| [10_交接给ChatGPT](docs/10_交接给ChatGPT.md) | 把项目上下文打包交给 ChatGPT 继续做（含 HANDOFF.md） |
 
 ## 许可
 
