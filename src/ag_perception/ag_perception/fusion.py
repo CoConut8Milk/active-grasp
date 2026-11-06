@@ -69,12 +69,13 @@ def backproject(depth, k_matrix, t_base_cam, u_sign=1.0, v_sign=1.0):
     return p_b[..., :3], valid
 
 
-def auto_calibrate(depth, k_matrix, t_base_cam, max_depth=1.1, max_samples=3000):
-    """Recover the image mirroring (u_sign, v_sign) from a flat table frame.
+def auto_calibrate_scores(depth, k_matrix, t_base_cam, max_depth=1.1,
+                          max_samples=3000):
+    """Flatness score (z variance) for all four mirroring hypotheses.
 
-    When the camera looks at the empty table, the correct sign combination
-    back-projects every pixel onto the z=0 plane; a wrong sign maps the image
-    onto a tilted plane with much larger height variance.
+    A lower score means the points back-project closer to one horizontal
+    plane.  Returning all four lets the caller judge whether the view can
+    actually distinguish the signs (a straight top-down view cannot).
     """
     valid = np.isfinite(depth) & (depth > 0.05) & (depth < max_depth)
     idx = np.argwhere(valid)
@@ -89,8 +90,7 @@ def auto_calibrate(depth, k_matrix, t_base_cam, max_depth=1.1, max_samples=3000)
     fx, fy = k_matrix[0, 0], k_matrix[1, 1]
     cx, cy = k_matrix[0, 2], k_matrix[1, 2]
 
-    best = (1.0, 1.0)
-    best_score = float("inf")
+    scores = {}
     for su in (1.0, -1.0):
         for sv in (1.0, -1.0):
             p = np.stack(
@@ -103,11 +103,49 @@ def auto_calibrate(depth, k_matrix, t_base_cam, max_depth=1.1, max_samples=3000)
                 axis=-1,
             )
             p_b = np.einsum("ij,nj->ni", t_base_cam, p)
-            score = float(np.var(p_b[:, 2]))
-            if score < best_score:
-                best_score = score
-                best = (su, sv)
-    return best
+            scores[(su, sv)] = float(np.var(p_b[:, 2]))
+    return scores
+
+
+def auto_calibrate(depth, k_matrix, t_base_cam, max_depth=1.1, max_samples=3000):
+    """Recover the best (u_sign, v_sign) from a flat table frame.
+
+    Note: for a level table the horizontal sign is mathematically
+    unobservable (mirroring keeps the plane flat); see
+    ``choose_v_sign`` for the vertical decision.
+    """
+    scores = auto_calibrate_scores(
+        depth, k_matrix, t_base_cam,
+        max_depth=max_depth, max_samples=max_samples,
+    )
+    return min(scores, key=scores.get)
+
+
+def choose_v_sign(scores, fallback=-1.0, ratio=0.25):
+    """Decide the vertical image sign only when the data can see it.
+
+    ``scores`` maps (su, sv) -> flatness variance.  Because u is
+    unobservable for a level table, compare the *best* score achievable for
+    each v.  If the two are within ``ratio`` of each other the view is
+    degenerate (e.g. perfectly top-down) and the configured ``fallback`` is
+    returned instead of a coin flip.
+
+    Returns ``(v_sign, confident, best_by_v)``.
+    """
+    best_by_v = {
+        1.0: min(scores[(1.0, 1.0)], scores[(-1.0, 1.0)]),
+        -1.0: min(scores[(1.0, -1.0)], scores[(-1.0, -1.0)]),
+    }
+    best_v = min(best_by_v, key=best_by_v.get)
+    other = -best_v
+    # Require a real margin: when both variances are ~0 (perfect top-down
+    # view) the ratio test alone would call the tie "confident".
+    margin = best_by_v[other] - best_by_v[best_v]
+    confident = (
+        margin > 1e-6
+        and best_by_v[best_v] < ratio * max(best_by_v[other], 1e-12)
+    )
+    return (best_v if confident else float(fallback)), confident, best_by_v
 
 
 def make_snapshot(points, valid, color, height, width, x_min, x_max, y_min, y_max,

@@ -4,7 +4,9 @@ import pytest
 from ag_perception.fusion import (
     HeightmapFusion,
     auto_calibrate,
+    auto_calibrate_scores,
     backproject,
+    choose_v_sign,
     make_snapshot,
     pose_to_matrix,
 )
@@ -80,6 +82,32 @@ def test_flat_table_cannot_observe_horizontal_sign():
     assert height_variance(1.0, -1.0) < height_variance(1.0, 1.0)
     _, sv = auto_calibrate(depth, k, t, max_samples=1500)
     assert sv == -1.0
+
+
+def test_choose_v_sign_keeps_the_fallback_when_topdown():
+    # A perfectly top-down view fits both vertical mirrors equally well.
+    scores = {
+        (1.0, 1.0): 0.0, (-1.0, 1.0): 0.0,
+        (1.0, -1.0): 0.0, (-1.0, -1.0): 0.0,
+    }
+    sign, confident, _ = choose_v_sign(scores, fallback=-1.0)
+    assert sign == -1.0 and not confident
+
+
+def test_choose_v_sign_trusts_a_clear_oblique_view():
+    scores = {
+        (1.0, 1.0): 0.020, (-1.0, 1.0): 0.020,
+        (1.0, -1.0): 0.0001, (-1.0, -1.0): 0.0001,
+    }
+    sign, confident, _ = choose_v_sign(scores, fallback=1.0)
+    assert sign == -1.0 and confident
+
+
+def test_auto_calibrate_scores_returns_four_hypotheses():
+    depth, k, t = _flat_table_depth(u_sign=1.0, v_sign=-1.0)
+    scores = auto_calibrate_scores(depth, k, t, max_samples=800)
+    assert set(scores) == {(1.0, 1.0), (1.0, -1.0), (-1.0, 1.0), (-1.0, -1.0)}
+    assert scores[(1.0, -1.0)] == pytest.approx(0.0, abs=1e-9)
 
 
 def test_snapshot_and_uncertainty():

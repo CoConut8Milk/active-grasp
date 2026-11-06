@@ -29,7 +29,8 @@ from tf2_ros import LookupException, ConnectivityException, ExtrapolationExcepti
 
 from ag_interfaces.srv import Observe
 from ag_perception.fusion import (
-    HeightmapFusion, auto_calibrate, backproject, pose_to_matrix,
+    HeightmapFusion, auto_calibrate_scores, backproject, choose_v_sign,
+    pose_to_matrix,
 )
 
 
@@ -63,7 +64,7 @@ class PerceptionNode(Node):
         self.declare_parameter("valid_border", 3)
         # Image axis convention of the simulator (see perception.yaml).
         self.declare_parameter("u_sign", -1.0)
-        self.declare_parameter("v_sign", 1.0)
+        self.declare_parameter("v_sign", -1.0)
         self.declare_parameter("hfov", 1.047197551)
         self.declare_parameter("image_width", 320)
         self.declare_parameter("image_height", 240)
@@ -338,26 +339,28 @@ class PerceptionNode(Node):
         k = self._k_matrix if self._k_matrix is not None else self._fallback_k()
         pose = self._camera_pose(depth.header.stamp)
         depth_img = self.bridge.imgmsg_to_cv2(depth, desired_encoding="32FC1")
-        est_u, est_v = auto_calibrate(
+        scores = auto_calibrate_scores(
             depth_img, k, pose, max_depth=self.calib_max_depth
         )
-        # A level table looks level in the mirrored cloud too, so the flatness
-        # test can never observe the horizontal sign (measured: both u choices
-        # give exactly zero height variance). Only the vertical sign carries
-        # information - it tells us whether the camera is upside down. Take
-        # that from the data, and the horizontal sign from it as well, since
-        # u and v flip together when the camera rolls.
-        self._signs = (self.u_sign, self.v_sign)
-        if est_v != self.v_sign:
+        est_u, est_v = min(scores, key=scores.get)
+        # u is unobservable for a level table (mirroring keeps it flat), so it
+        # always comes from the camera convention. v is only taken from the
+        # data when the view can actually distinguish it: from a perfectly
+        # top-down view both v choices fit the table equally well and the
+        # estimate is a coin flip.
+        v_sign, confident, best_by_v = choose_v_sign(scores, fallback=self.v_sign)
+        if not confident:
             self.get_logger().warn(
-                f"flat-plane estimate says v_sign={est_v:+.0f} but the "
-                f"configured value is {self.v_sign:+.0f}; adopting the "
-                "estimate for both axes"
+                "vertical mirror is not observable from this view "
+                f"(v=+1 score {best_by_v[1.0]:.5f}, v=-1 score "
+                f"{best_by_v[-1.0]:.5f}); keeping configured "
+                f"v_sign={v_sign:+.0f}"
             )
-            self._signs = (float(est_v), float(est_v))
+        self._signs = (float(self.u_sign), float(v_sign))
         self.get_logger().info(
             f"camera signs: {self._signs} "
-            f"(flat-plane estimate {(est_u, est_v)}, u unobservable)"
+            f"(flat-plane best {(est_u, est_v)}, u unobservable, "
+            f"v {'measured' if confident else 'configured'})"
         )
 
     def _convert_color(self, color_msg, depth_shape):

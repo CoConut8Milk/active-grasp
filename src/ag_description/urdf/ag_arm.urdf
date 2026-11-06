@@ -281,21 +281,28 @@
   <link name="gripper_base">
     <visual>
       <geometry>
-        <box size="0.13 0.07 0.024"/>
+        <box size="0.12 0.065 0.020"/>
       </geometry>
-      <origin xyz="0 0 -0.012" rpy="0 0 0"/>
+      <origin xyz="0 0 -0.014" rpy="0 0 0"/>
       <material name="ag_dark"/>
+    </visual>
+    <visual>
+      <geometry>
+        <cylinder radius="0.026" length="0.018"/>
+      </geometry>
+      <origin xyz="0 0 0.004" rpy="0 0 0"/>
+      <material name="ag_steel"/>
     </visual>
     <collision>
       <geometry>
-        <box size="0.13 0.07 0.024"/>
+        <box size="0.12 0.065 0.020"/>
       </geometry>
-      <origin xyz="0 0 -0.012" rpy="0 0 0"/>
+      <origin xyz="0 0 -0.014" rpy="0 0 0"/>
     </collision>
     <inertial>
-      <mass value="0.35"/>
-      <origin xyz="0 0 -0.012"/>
-      <inertia ixx="0.0002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.00032"/>
+      <mass value="0.30"/>
+      <origin xyz="0 0 -0.010"/>
+      <inertia ixx="0.00015" ixy="0" ixz="0" iyy="0.00015" iyz="0" izz="0.00024"/>
     </inertial>
   </link>
 
@@ -397,7 +404,10 @@
          fingers. With the old +tool z mount, looking at the table put the
          gripper upside down and every grasp needed a 180 degree wrist turn
          (the 3.1 rad "configuration change" in the logs). -->
-    <origin xyz="0.06 0 0.04" rpy="0 1.5708 0"/>
+    <!-- Mounted further out and higher than v2 so the palm never occludes
+         the view; the bracket and lens are modelled so the camera reads as a
+         real sensor instead of a floating box. -->
+    <origin xyz="0.075 0 0.055" rpy="0 1.5708 0"/>
   </joint>
 
   <link name="camera_link">
@@ -407,6 +417,20 @@
       </geometry>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <material name="ag_black"/>
+    </visual>
+    <visual>
+      <geometry>
+        <box size="0.025 0.03 0.02"/>
+      </geometry>
+      <origin xyz="-0.02 0 0.026" rpy="0 0 0"/>
+      <material name="ag_dark"/>
+    </visual>
+    <visual>
+      <geometry>
+        <cylinder radius="0.012" length="0.008"/>
+      </geometry>
+      <origin xyz="0.019 0 0" rpy="0 1.5708 0"/>
+      <material name="ag_steel"/>
     </visual>
     <collision>
       <geometry>
