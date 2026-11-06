@@ -23,18 +23,19 @@ def _params():
         ],
         "gripper_close": [0.030, 0.030],
         "gripper_open": [0.0, 0.0],
-        "gripper_open_gap": 0.064,
-        "gripper_closed_gap": 0.004,
+        "gripper_open_gap": 0.066,
+        "gripper_closed_gap": 0.006,
         "held_margin": 0.004,
         "approach_offset": 0.18,
         "grasp_offset": 0.065,
-        "finger_length": 0.105,
+        "finger_length": 0.104,
         "lift_height": 0.30,
         "push_height": 0.075,
         "push_length": 0.09,
         "view_dwell": 1.2,
         "dur_approach": 0.9, "dur_descend": 0.55, "dur_close": 0.7,
         "dur_hold_check": 0.35, "dur_lift": 0.6, "dur_transit": 0.9,
+        "dur_lift_check": 0.8,
         "dur_open": 0.5, "dur_home": 1.0, "dur_push": 0.7,
         "dur_retreat": 0.5, "dur_view": 1.0,
     }
@@ -69,6 +70,7 @@ def test_plans_are_well_formed():
     params = _params()
     kinds_grasp = [s["kind"] for s in grasp_plan(params, 0.45, 0.0, 0.05)]
     assert kinds_grasp[0] == "move" and "hold_check" in kinds_grasp
+    assert kinds_grasp.count("hold_check") == 2   # before and after the test lift
     assert grasp_plan(params, 0.45, 0.0, 0.05)[-1]["kind"] == "home"
 
     push = push_plan(params, 0.45, 0.0, math.pi / 2)
@@ -95,14 +97,14 @@ def test_grasp_descends_so_fingers_straddle_the_object():
 def test_hold_detection_uses_the_real_finger_geometry():
     params = _params()
     # Wide open: nothing between the jaws yet.
-    assert abs(gripper_width(params, 0.0, 0.0) - 0.064) < 1e-9
+    assert abs(gripper_width(params, 0.0, 0.0) - 0.066) < 1e-9
     assert not is_holding(params, 0.0, 0.0)
     # Fully closed on air: still not holding.
-    assert abs(gripper_width(params, 0.030, 0.030) - 0.004) < 1e-9
+    assert abs(gripper_width(params, 0.030, 0.030) - 0.006) < 1e-9
     assert not is_holding(params, 0.030, 0.030)
-    # A 3 cm object stops each finger at 1.7 cm -> 3 cm remains.
-    assert abs(gripper_width(params, 0.017, 0.017) - 0.030) < 1e-9
-    assert is_holding(params, 0.017, 0.017)
+    # A 3 cm object stops each finger at 1.8 cm -> 3 cm remains.
+    assert abs(gripper_width(params, 0.018, 0.018) - 0.030) < 1e-9
+    assert is_holding(params, 0.018, 0.018)
 
 
 def test_interpolate_joints_endpoints():

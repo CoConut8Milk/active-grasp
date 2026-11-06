@@ -64,13 +64,13 @@ class ExecutionNode(Node):
         self.declare_parameter("min_grasp_height", 0.008)
         self.declare_parameter("gripper_close", [0.030, 0.030])
         self.declare_parameter("gripper_open", [0.0, 0.0])
-        self.declare_parameter("gripper_open_gap", 0.064)
-        self.declare_parameter("gripper_closed_gap", 0.004)
+        self.declare_parameter("gripper_open_gap", 0.066)
+        self.declare_parameter("gripper_closed_gap", 0.006)
         self.declare_parameter("held_margin", 0.004)
         self.declare_parameter("held_q_sum", 0.033)
         self.declare_parameter("approach_offset", 0.18)
         self.declare_parameter("grasp_offset", 0.065)
-        self.declare_parameter("finger_length", 0.105)
+        self.declare_parameter("finger_length", 0.104)
         self.declare_parameter("lift_height", 0.30)
         self.declare_parameter("push_height", 0.075)
         self.declare_parameter("push_length", 0.09)
@@ -130,6 +130,7 @@ class ExecutionNode(Node):
             # （日志里 Position Error 0.05~0.16 rad 就是这么来的）。
             "dur_approach": 2.0, "dur_descend": 2.2, "dur_close": 1.4,
             "dur_hold_check": 0.5, "dur_lift": 2.0, "dur_transit": 2.8,
+            "dur_lift_check": 1.0,
             "dur_open": 0.8, "dur_home": 2.5, "dur_push": 1.6,
             "dur_retreat": 1.2, "dur_view": 2.0,
         }

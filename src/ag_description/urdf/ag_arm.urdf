@@ -266,33 +266,36 @@
     </inertial>
   </link>
 
-  <!-- ======================= parallel jaw gripper =======================
-       Proper two-finger gripper: a palm plate bolted to the flange and two
-       long fingers that slide towards each other.
+  <!-- ======================= parallel jaw gripper (v2) ====================
+       Two-finger parallel gripper designed for this tabletop scene:
 
-         - tool z points AWAY from the fingertips, so everything hangs at -z
-         - open gap   6.4 cm  (inner faces at +-3.2 cm)
-         - closed gap 0.4 cm  (stroke 3.0 cm per finger)
-         - fingertips 10.5 cm below tool0
-  -->
+         - palm 13 x 7 x 2.4 cm bolted to tool0
+         - each finger: 8 cm bar (1.8 x 3.4 cm section) + inward tip pad,
+           so the jaw is 10.4 cm long overall - enough for 4 cm objects
+           while staying "moderate" relative to the 6-DoF arm
+         - open clearance 6.6 cm between the tip pads (>=1.5 cm per side
+           around a 3.4 cm object)
+         - stroke 3.0 cm per finger -> closed clearance 0.6 cm
+         - fingertips 10.4 cm below tool0
+   -->
   <link name="gripper_base">
     <visual>
       <geometry>
-        <box size="0.11 0.06 0.02"/>
+        <box size="0.13 0.07 0.024"/>
       </geometry>
-      <origin xyz="0 0 -0.02" rpy="0 0 0"/>
+      <origin xyz="0 0 -0.012" rpy="0 0 0"/>
       <material name="ag_dark"/>
     </visual>
     <collision>
       <geometry>
-        <box size="0.11 0.06 0.02"/>
+        <box size="0.13 0.07 0.024"/>
       </geometry>
-      <origin xyz="0 0 -0.02" rpy="0 0 0"/>
+      <origin xyz="0 0 -0.012" rpy="0 0 0"/>
     </collision>
     <inertial>
-      <mass value="0.3"/>
-      <origin xyz="0 0 -0.02"/>
-      <inertia ixx="0.00012" ixy="0" ixz="0" iyy="0.00012" iyz="0" izz="0.0002"/>
+      <mass value="0.35"/>
+      <origin xyz="0 0 -0.012"/>
+      <inertia ixx="0.0002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.00032"/>
     </inertial>
   </link>
 
@@ -305,58 +308,84 @@
   <joint name="finger_left" type="prismatic">
     <parent link="gripper_base"/>
     <child link="finger_left_link"/>
-    <origin xyz="-0.040 0 -0.030" rpy="0 0 0"/>
+    <origin xyz="-0.047 0 -0.024" rpy="0 0 0"/>
     <axis xyz="1 0 0"/>
-    <limit lower="0" upper="0.030" effort="30" velocity="0.10"/>
+    <limit lower="0" upper="0.030" effort="35" velocity="0.12"/>
   </joint>
 
   <link name="finger_left_link">
     <visual>
       <geometry>
-        <box size="0.016 0.032 0.075"/>
+        <box size="0.018 0.034 0.080"/>
       </geometry>
-      <origin xyz="0 0 -0.0375" rpy="0 0 0"/>
+      <origin xyz="0 0 -0.040" rpy="0 0 0"/>
+      <material name="ag_orange"/>
+    </visual>
+    <visual>
+      <geometry>
+        <box size="0.008 0.034 0.020"/>
+      </geometry>
+      <origin xyz="0.010 0 -0.070" rpy="0 0 0"/>
       <material name="ag_orange"/>
     </visual>
     <collision>
       <geometry>
-        <box size="0.016 0.032 0.075"/>
+        <box size="0.018 0.034 0.080"/>
       </geometry>
-      <origin xyz="0 0 -0.0375" rpy="0 0 0"/>
+      <origin xyz="0 0 -0.040" rpy="0 0 0"/>
+    </collision>
+    <collision>
+      <geometry>
+        <box size="0.008 0.034 0.020"/>
+      </geometry>
+      <origin xyz="0.010 0 -0.070" rpy="0 0 0"/>
     </collision>
     <inertial>
-      <mass value="0.06"/>
-      <origin xyz="0 0 -0.0375"/>
-      <inertia ixx="0.000017" ixy="0" ixz="0" iyy="0.000015" iyz="0" izz="0.0000027"/>
+      <mass value="0.08"/>
+      <origin xyz="0 0 -0.045"/>
+      <inertia ixx="0.000030" ixy="0" ixz="0" iyy="0.000022" iyz="0" izz="0.000010"/>
     </inertial>
   </link>
 
   <joint name="finger_right" type="prismatic">
     <parent link="gripper_base"/>
     <child link="finger_right_link"/>
-    <origin xyz="0.040 0 -0.030" rpy="0 0 0"/>
+    <origin xyz="0.047 0 -0.024" rpy="0 0 0"/>
     <axis xyz="-1 0 0"/>
-    <limit lower="0" upper="0.030" effort="30" velocity="0.10"/>
+    <limit lower="0" upper="0.030" effort="35" velocity="0.12"/>
   </joint>
 
   <link name="finger_right_link">
     <visual>
       <geometry>
-        <box size="0.016 0.032 0.075"/>
+        <box size="0.018 0.034 0.080"/>
       </geometry>
-      <origin xyz="0 0 -0.0375" rpy="0 0 0"/>
+      <origin xyz="0 0 -0.040" rpy="0 0 0"/>
+      <material name="ag_orange"/>
+    </visual>
+    <visual>
+      <geometry>
+        <box size="0.008 0.034 0.020"/>
+      </geometry>
+      <origin xyz="-0.010 0 -0.070" rpy="0 0 0"/>
       <material name="ag_orange"/>
     </visual>
     <collision>
       <geometry>
-        <box size="0.016 0.032 0.075"/>
+        <box size="0.018 0.034 0.080"/>
       </geometry>
-      <origin xyz="0 0 -0.0375" rpy="0 0 0"/>
+      <origin xyz="0 0 -0.040" rpy="0 0 0"/>
+    </collision>
+    <collision>
+      <geometry>
+        <box size="0.008 0.034 0.020"/>
+      </geometry>
+      <origin xyz="-0.010 0 -0.070" rpy="0 0 0"/>
     </collision>
     <inertial>
-      <mass value="0.06"/>
-      <origin xyz="0 0 -0.0375"/>
-      <inertia ixx="0.000017" ixy="0" ixz="0" iyy="0.000015" iyz="0" izz="0.0000027"/>
+      <mass value="0.08"/>
+      <origin xyz="0 0 -0.045"/>
+      <inertia ixx="0.000030" ixy="0" ixz="0" iyy="0.000022" iyz="0" izz="0.000010"/>
     </inertial>
   </link>
 

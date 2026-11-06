@@ -97,9 +97,9 @@ def test_fingertips_hang_below_the_tool_at_the_grasp_pose():
     )
     assert q is not None
     tool = model.fk(q)["tool0"]
-    pad = tool @ np.array([-0.040, 0.0, -0.030, 1.0])
-    tip = tool @ np.array([-0.040, 0.0, -0.105, 1.0])
-    assert pad[2] < 0.095   # 3 cm below the flange
+    pad = tool @ np.array([-0.047, 0.0, -0.024, 1.0])
+    tip = tool @ np.array([-0.047, 0.0, -0.104, 1.0])
+    assert pad[2] < 0.10    # 2.4 cm below the flange
     assert 0.005 < tip[2] < 0.035   # fingertips near, but above, the table
 
 

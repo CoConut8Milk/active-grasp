@@ -68,14 +68,21 @@ def grasp_plan(params, x, y, z_top):
     # ~1.5 cm above the table: that straddles every object in the scene
     # (2-4.5 cm tall), leaves margin for a few degrees of joint lag and, unlike
     # a target derived from z_top, does not depend on the height-map accuracy.
-    finger_length = params.get("finger_length", 0.08)
+    finger_length = params.get("finger_length", 0.104)
     descend_z = 0.015 + finger_length
+    lift_check_z = descend_z + 0.05
     return [
         {"kind": "move", "pos": [x, y, descend_z + params["approach_offset"]],
          "rot": orient, "dur": params["dur_approach"]},
         {"kind": "move", "pos": [x, y, descend_z],
          "rot": orient, "dur": params["dur_descend"]},
         {"kind": "gripper", "pos": params["gripper_close"], "dur": params["dur_close"]},
+        {"kind": "hold_check", "dur": params["dur_hold_check"]},
+        # Small lift + second hold check: catches objects that slip out of the
+        # jaws as soon as they leave the table (the classic "closed on air"
+        # success that later fails at the bin).
+        {"kind": "move", "pos": [x, y, lift_check_z],
+         "rot": orient, "dur": params.get("dur_lift_check", 1.0)},
         {"kind": "hold_check", "dur": params["dur_hold_check"]},
         {"kind": "move", "pos": [x, y, params["lift_height"]],
          "rot": orient, "dur": params["dur_lift"]},
