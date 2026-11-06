@@ -512,14 +512,8 @@ class ExecutionNode(Node):
         except KeyError:
             return False
 
-    def _log_tool_pose(self, target_t):
-        """Compare the commanded tool pose with the one reported by TF.
-
-        This is what tells us whether a failed grasp is caused by the arm not
-        reaching the target or by something upstream (height map, object
-        placement). TF comes from robot_state_publisher + /joint_states, i.e.
-        the joint positions the robot actually reports.
-        """
+    def _actual_tool_pose(self):
+        """Tool position reported by TF (URDF + real /joint_states)."""
         try:
             transform = self.tf_buffer.lookup_transform(
                 self.base_link, self.tool_link, rclpy.time.Time(),
@@ -529,9 +523,16 @@ class ExecutionNode(Node):
             self.get_logger().warn(
                 f"no TF {self.base_link}->{self.tool_link}: {type(exc).__name__}"
             )
-            return
+            return None
         t = transform.transform.translation
-        actual = np.array([t.x, t.y, t.z], dtype=float)
+        return np.array([t.x, t.y, t.z], dtype=float)
+
+    def _log_tool_pose(self, target_t, actual=None):
+        """Compare the commanded tool pose with the one reported by TF."""
+        if actual is None:
+            actual = self._actual_tool_pose()
+        if actual is None:
+            return
         target = np.asarray(target_t, dtype=float)[:3, 3]
         error = float(np.linalg.norm(actual - target))
         message = (
@@ -543,6 +544,49 @@ class ExecutionNode(Node):
             self.get_logger().warn(message)
         else:
             self.get_logger().info(message)
+
+    def _move_to_pose(self, target_t, duration, tolerance=0.006, max_iters=2):
+        """Cartesian move with TF-based closed-loop correction.
+
+        The gazebo position loop settles 10-20 mm away from the commanded
+        joint targets (the weight of the tool pulls the wrist). One open-loop
+        trajectory therefore aims next to the object. Re-solve from
+        ``target + measured_error`` until the tool is within ``tolerance``.
+        """
+        target = np.array(target_t, dtype=float, copy=True)
+        error_norm = float("inf")
+        for attempt in range(max_iters + 1):
+            q = self._solve(target)
+            if q is None:
+                self.get_logger().warn(
+                    f"IK found no solution for {np.round(target[:3, 3], 3)}"
+                )
+                return False
+            if not self._move_to_joints(q, duration):
+                return False
+            actual = self._actual_tool_pose()
+            if actual is None:
+                return True
+            error = target[:3, 3] - actual
+            error_norm = float(np.linalg.norm(error))
+            self._log_tool_pose(target, actual)
+            if error_norm <= tolerance:
+                return True
+            if attempt < max_iters:
+                self.get_logger().info(
+                    f"pose correction {attempt + 1}: {error_norm * 1000:.1f} mm"
+                )
+                target[:3, 3] = target[:3, 3] + error
+        if error_norm <= 0.012:
+            self.get_logger().warn(
+                f"pose settled {error_norm * 1000:.1f} mm from the target"
+            )
+            return True
+        self.get_logger().warn(
+            f"pose not converged after {max_iters + 1} attempts "
+            f"(last error {error_norm * 1000:.1f} mm)"
+        )
+        return False
 
     def _log_objects_near(self, x, y, top=3):
         """Report where gazebo thinks the clutter really is (debug aid).
@@ -588,14 +632,9 @@ class ExecutionNode(Node):
         kind = step["kind"]
         if kind == "move":
             target = self._tool_pose(step["pos"], step["rot"])
-            q = self._solve(target)
-            if q is None:
-                self.get_logger().warn(f"IK found no solution for {step['pos']}")
-                return False
-            if not self._move_to_joints(q, step["dur"]):
+            if not self._move_to_pose(target, step["dur"]):
                 self.get_logger().warn(f"trajectory did not reach {step['pos']}")
                 return False
-            self._log_tool_pose(target)
             return True
         if kind == "gripper":
             if np.allclose(step["pos"], self.params["gripper_close"]):
@@ -612,11 +651,7 @@ class ExecutionNode(Node):
                 look_at_matrix(step["pos"], step["look"]), step["pos"]
             )
             tool_target = cam_target @ self.model.camera_in_tool()
-            q = self._solve(tool_target)
-            if q is None:
-                self.get_logger().warn(f"IK found no solution for view {step['pos']}")
-                return False
-            if not self._move_to_joints(q, step["dur"]):
+            if not self._move_to_pose(tool_target, step["dur"], tolerance=0.01):
                 return False
             self._sleep(step["dwell"])
             req = Observe.Request()
