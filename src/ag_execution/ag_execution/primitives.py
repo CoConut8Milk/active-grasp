@@ -12,6 +12,8 @@ import math
 
 import numpy as np
 
+from ag_execution.grasp_system import GraspGeometry, classify_hold
+
 
 def grasp_orientation():
     """Fingers pointing down, closing axis along world x.
@@ -37,11 +39,11 @@ def is_holding(params, q_left, q_right):
     reaches ``gripper_open_gap``. Anything strictly between the two means the
     fingers stopped early, i.e. an object is being squeezed.
     """
-    width = gripper_width(params, q_left, q_right)
-    return (
-        params["gripper_closed_gap"] + params["held_margin"]
-        < width
-        < params["gripper_open_gap"] - 0.005
+    return classify_hold(
+        gripper_width(params, q_left, q_right),
+        params["gripper_open_gap"],
+        params["gripper_closed_gap"],
+        params.get("held_margin", 0.004),
     )
 
 
@@ -68,9 +70,12 @@ def grasp_plan(params, x, y, z_top):
     # ~1.5 cm above the table: that straddles every object in the scene
     # (2-4.5 cm tall), leaves margin for a few degrees of joint lag and, unlike
     # a target derived from z_top, does not depend on the height-map accuracy.
-    finger_length = params.get("finger_length", 0.104)
-    descend_z = 0.015 + finger_length
-    lift_check_z = descend_z + 0.05
+    geometry = GraspGeometry(
+        finger_length=params.get("finger_length", 0.104),
+        approach_offset=params["approach_offset"],
+    )
+    descend_z = geometry.descend_z
+    lift_check_z = geometry.test_lift_z
     return [
         {"kind": "move", "pos": [x, y, descend_z + params["approach_offset"]],
          "rot": orient, "dur": params["dur_approach"]},

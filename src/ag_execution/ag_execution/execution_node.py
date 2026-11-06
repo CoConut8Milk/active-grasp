@@ -26,6 +26,7 @@ from ag_execution.kinematics import (
     RobotModel, joint_error, look_at_matrix, nearest_joint_branch,
     pose_from_rot_trans,
 )
+from ag_execution.grasp_system import closing_schedule, detect_contact
 from ag_execution.primitives import (
     grasp_plan, push_plan, view_plan, grid_to_xy, interpolate_joints,
     gripper_width, is_holding,
@@ -468,16 +469,15 @@ class ExecutionNode(Node):
         per_step = target / steps
         expected = 2.0 * per_step
         prev_width = self._gripper_width()
-        for i in range(1, steps + 1):
-            q = per_step * i
+        for q in closing_schedule(target, steps):
             self._set_gripper([q, q], duration)
             width = self._gripper_width()
-            moved = prev_width - width
+            blocked, moved = detect_contact(prev_width, width, expected)
             # The gazebo position loop follows the command with a rather slow
             # first order response, so compare the achieved width change with
             # a generous fraction of the expected change: blocked jaws move
             # (almost) nothing, free jaws clearly do.
-            if moved < 0.25 * expected:
+            if blocked:
                 self.get_logger().info(
                     f"jaw contact at commanded q={q:.4f} m: jaws moved "
                     f"{moved * 1000:.1f} of {expected * 1000:.1f} mm, "
@@ -552,14 +552,20 @@ class ExecutionNode(Node):
         joint targets (the weight of the tool pulls the wrist). One open-loop
         trajectory therefore aims next to the object. Re-solve from
         ``target + measured_error`` until the tool is within ``tolerance``.
+
+        The error is ALWAYS measured against the original desired pose, while
+        the correction is accumulated on a separate command target. Comparing
+        against the corrected target (the previous version) makes the loop
+        chase itself and overshoot by one offset.
         """
-        target = np.array(target_t, dtype=float, copy=True)
+        desired = np.array(target_t, dtype=float, copy=True)
+        command = np.array(target_t, dtype=float, copy=True)
         error_norm = float("inf")
         for attempt in range(max_iters + 1):
-            q = self._solve(target)
+            q = self._solve(command)
             if q is None:
                 self.get_logger().warn(
-                    f"IK found no solution for {np.round(target[:3, 3], 3)}"
+                    f"IK found no solution for {np.round(desired[:3, 3], 3)}"
                 )
                 return False
             if not self._move_to_joints(q, duration):
@@ -567,16 +573,16 @@ class ExecutionNode(Node):
             actual = self._actual_tool_pose()
             if actual is None:
                 return True
-            error = target[:3, 3] - actual
+            error = desired[:3, 3] - actual
             error_norm = float(np.linalg.norm(error))
-            self._log_tool_pose(target, actual)
+            self._log_tool_pose(desired, actual)
             if error_norm <= tolerance:
                 return True
             if attempt < max_iters:
                 self.get_logger().info(
                     f"pose correction {attempt + 1}: {error_norm * 1000:.1f} mm"
                 )
-                target[:3, 3] = target[:3, 3] + error
+                command[:3, 3] = command[:3, 3] + error
         if error_norm <= 0.012:
             self.get_logger().warn(
                 f"pose settled {error_norm * 1000:.1f} mm from the target"
